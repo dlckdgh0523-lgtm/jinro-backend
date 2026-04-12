@@ -232,5 +232,84 @@ export const authRepository = {
         revokedAt: new Date()
       }
     });
+  },
+
+  findGoogleUser(email: string) {
+    return prisma.user.findUnique({
+      where: { email },
+      include: {
+        studentProfile: true,
+        teacherProfile: {
+          include: {
+            homeroomClassRooms: {
+              where: { deletedAt: null },
+              orderBy: { updatedAt: "desc" },
+              take: 1
+            }
+          }
+        }
+      }
+    });
+  },
+
+  createGoogleStudentUser(input: { email: string; name: string }) {
+    return prisma.user.create({
+      data: {
+        email: input.email,
+        role: "STUDENT",
+        status: "ACTIVE",
+        authProvider: "GOOGLE",
+        studentProfile: {
+          create: {
+            displayName: input.name,
+            schoolName: "미정",
+            gradeLevel: 0,
+            track: "UNDECIDED",
+            onboardingCompleted: false
+          }
+        }
+      },
+      include: {
+        studentProfile: true,
+        teacherProfile: {
+          include: {
+            homeroomClassRooms: {
+              where: { deletedAt: null },
+              orderBy: { updatedAt: "desc" },
+              take: 1
+            }
+          }
+        }
+      }
+    });
+  },
+
+  createGoogleTeacherUser(input: { email: string; name: string; schoolName: string }) {
+    return prisma.user.create({
+      data: {
+        email: input.email,
+        role: "TEACHER",
+        status: "ACTIVE",
+        authProvider: "GOOGLE",
+        teacherProfile: {
+          create: {
+            displayName: input.name,
+            schoolName: input.schoolName
+          }
+        }
+      },
+      include: {
+        studentProfile: true,
+        teacherProfile: {
+          include: {
+            homeroomClassRooms: {
+              where: { deletedAt: null },
+              orderBy: { updatedAt: "desc" },
+              take: 1
+            }
+          }
+        }
+      }
+    });
   }
 };

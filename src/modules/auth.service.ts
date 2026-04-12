@@ -14,9 +14,13 @@ import { authRepository } from "./auth.repository";
 import type {
   InviteValidationInput,
   LoginInput,
+  GoogleCallbackInput,
   StudentSignupInput,
   TeacherSignupInput
 } from "./auth.validator";
+import axios from "axios";
+import { OAuth2Client } from "google-auth-library";
+import { env } from "../config/env";
 
 type SessionPayload = {
   name: string;
@@ -248,5 +252,71 @@ export const authService = {
       teacherName: classroom.homeroomTeacher.displayName,
       classRoomId: classroom.id
     };
+  },
+
+  async handleGoogleCallback(input: GoogleCallbackInput) {
+    if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_CALLBACK_URL) {
+      throw new ApiError(500, "INTERNAL_SERVER_ERROR", "Google OAuth not configured.");
+    }
+
+    try {
+      const oauth2Client = new OAuth2Client({
+        clientId: env.GOOGLE_CLIENT_ID,
+        clientSecret: env.GOOGLE_CLIENT_SECRET,
+        redirectUri: env.GOOGLE_CALLBACK_URL
+      });
+
+      const { tokens } = await oauth2Client.getToken(input.code);
+
+      if (!tokens.id_token) {
+        throw new ApiError(401, "AUTHENTICATION_ERROR", "Failed to get ID token from Google.");
+      }
+
+      const ticket = await oauth2Client.verifyIdToken({
+        idToken: tokens.id_token
+      });
+
+      const payload = ticket.getPayload();
+
+      if (!payload || !payload.email) {
+        throw new ApiError(401, "AUTHENTICATION_ERROR", "Invalid ID token payload.");
+      }
+
+      let user = await authRepository.findGoogleUser(payload.email);
+
+      if (!user) {
+        const name = payload.name || payload.email.split("@")[0] || "User";
+
+        if (payload.hd && (payload.hd.endsWith(".hs.kr") || payload.hd.endsWith(".school.kr"))) {
+          user = await authRepository.createGoogleTeacherUser({
+            email: payload.email,
+            name,
+            schoolName: "미정"
+          });
+        } else {
+          user = await authRepository.createGoogleStudentUser({
+            email: payload.email,
+            name
+          });
+        }
+      }
+
+      if (!user || user.status !== "ACTIVE") {
+        throw new ApiError(403, "FORBIDDEN", "Inactive account.");
+      }
+
+      await authRepository.updateLastLoginAt(user.id);
+      return buildSessionResponse(user.id);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+
+      if (axios.isAxiosError(error)) {
+        throw new ApiError(401, "AUTHENTICATION_ERROR", "Google OAuth request failed.");
+      }
+
+      throw new ApiError(500, "INTERNAL_SERVER_ERROR", "Google OAuth processing failed.");
+    }
   }
 };

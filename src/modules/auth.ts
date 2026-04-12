@@ -8,10 +8,12 @@ import {
   inviteValidationSchema,
   loginSchema,
   refreshSchema,
+  googleCallbackSchema,
   studentSignupSchema,
   teacherSignupSchema
 } from "./auth.validator";
 import { authService } from "./auth.service";
+import { OAuth2Client } from "google-auth-library";
 
 const REFRESH_TOKEN_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -159,4 +161,51 @@ export const registerAuthRoutes = (router: Router) => {
       sendSuccess(req, res, await authService.validateInvite(req.body));
     })
   );
+
+  if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
+    router.get(
+      "/auth/google",
+      asyncHandler(async (req, res) => {
+        const oauth2Client = new OAuth2Client({
+          clientId: env.GOOGLE_CLIENT_ID!,
+          clientSecret: env.GOOGLE_CLIENT_SECRET!,
+          redirectUri: env.GOOGLE_CALLBACK_URL || ""
+        });
+
+        const authorizeUrl = oauth2Client.generateAuthUrl({
+          access_type: "offline",
+          scope: ["openid", "email", "profile"]
+        });
+
+        sendSuccess(req, res, {
+          authUrl: authorizeUrl
+        });
+      })
+    );
+
+    router.get(
+      "/auth/google/callback",
+      validate(googleCallbackSchema, "query"),
+      asyncHandler(async (req, res) => {
+        const { code } = req.query as { code: string; state: string };
+
+        const session = await authService.handleGoogleCallback({ code, state: "" });
+
+        attachRefreshTokenCookie(res, session.refreshToken);
+        setAuditContext(req, {
+          actorType: "USER",
+          actorUserId: session.user.id,
+          action: "AUTH_GOOGLE_LOGIN",
+          resourceType: "session",
+          resourceId: session.user.id,
+          afterJson: {
+            role: session.user.role,
+            authProvider: "GOOGLE"
+          }
+        });
+
+        sendSuccess(req, res, session);
+      })
+    );
+  }
 };

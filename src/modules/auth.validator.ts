@@ -5,6 +5,11 @@ export const loginSchema = z.object({
   password: z.string().min(1)
 });
 
+export const googleCallbackSchema = z.object({
+  code: z.string().min(1),
+  state: z.string().min(1)
+});
+
 export const studentSignupSchema = z
   .object({
     name: z.string().min(1),
@@ -43,6 +48,7 @@ export const inviteValidationSchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
+export type GoogleCallbackInput = z.infer<typeof googleCallbackSchema>;
 export type StudentSignupInput = z.infer<typeof studentSignupSchema>;
 export type TeacherSignupInput = z.infer<typeof teacherSignupSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;

@@ -9,7 +9,8 @@ export type ApiErrorCode =
   | "NOT_FOUND"
   | "CONFLICT"
   | "RATE_LIMITED"
-  | "INTERNAL_ERROR";
+  | "INTERNAL_ERROR"
+  | "INTERNAL_SERVER_ERROR";
 
 export interface RequestContextRequest extends Request {
   requestId?: string;

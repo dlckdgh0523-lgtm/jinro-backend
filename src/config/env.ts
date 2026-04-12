@@ -27,7 +27,10 @@ const envSchema = z.object({
   AI_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
   AWS_REGION: z.string().default("ap-northeast-2"),
   AWS_S3_BUCKET: z.string().optional().default(""),
-  AWS_SECRETS_PREFIX: z.string().default("/jinro-nachimban/backend")
+  AWS_SECRETS_PREFIX: z.string().default("/jinro-nachimban/backend"),
+  GOOGLE_CLIENT_ID: z.string().optional().default(""),
+  GOOGLE_CLIENT_SECRET: z.string().optional().default(""),
+  GOOGLE_CALLBACK_URL: z.string().optional().default("")
 });
 
 const parsed = envSchema.safeParse(process.env);
