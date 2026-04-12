@@ -37,6 +37,8 @@ COPY --from=deps /app/node_modules ./node_modules
 RUN npm prune --omit=dev
 
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/dist ./dist
 
 USER node
