@@ -106,7 +106,16 @@ export const authRepository = {
           }
         },
         include: {
-          studentProfile: true
+          studentProfile: true,
+          teacherProfile: {
+            include: {
+              homeroomClassRooms: {
+                where: { deletedAt: null },
+                orderBy: { updatedAt: "desc" },
+                take: 1
+              }
+            }
+          }
         }
       });
 
@@ -153,7 +162,16 @@ export const authRepository = {
           }
         },
         include: {
-          teacherProfile: true
+          studentProfile: true,
+          teacherProfile: {
+            include: {
+              homeroomClassRooms: {
+                where: { deletedAt: null },
+                orderBy: { updatedAt: "desc" },
+                take: 1
+              }
+            }
+          }
         }
       });
 
