@@ -1,0 +1,72 @@
+{
+  "family": "replace-with-github-var",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "replace-with-github-var",
+  "taskRoleArn": "replace-with-github-var",
+  "containerDefinitions": [
+    {
+      "name": "backend",
+      "image": "replace-with-cd-image",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 4000,
+          "hostPort": 4000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        { "name": "PORT", "value": "4000" },
+        { "name": "NODE_ENV", "value": "production" },
+        { "name": "APP_BASE_URL", "value": "https://api-staging.example.com" },
+        { "name": "LOG_LEVEL", "value": "info" },
+        { "name": "CORS_ORIGIN", "value": "https://staging.example.amplifyapp.com" },
+        { "name": "JWT_ACCESS_EXPIRES_IN", "value": "15m" },
+        { "name": "JWT_REFRESH_EXPIRES_IN", "value": "14d" },
+        { "name": "JWT_STREAM_EXPIRES_IN", "value": "60s" },
+        { "name": "REFRESH_TOKEN_COOKIE_NAME", "value": "jinro_refresh_token" },
+        { "name": "ACCESS_TOKEN_HEADER_NAME", "value": "authorization" },
+        { "name": "RATE_LIMIT_WINDOW_MS", "value": "900000" },
+        { "name": "RATE_LIMIT_MAX", "value": "200" },
+        { "name": "AUTH_RATE_LIMIT_MAX", "value": "20" },
+        { "name": "SSE_HEARTBEAT_INTERVAL_MS", "value": "15000" },
+        { "name": "SSE_RETRY_INTERVAL_MS", "value": "3000" },
+        { "name": "AI_PROVIDER", "value": "stub" },
+        { "name": "AI_MODEL_DEFAULT", "value": "stub-chat-model" },
+        { "name": "AI_EMBEDDING_MODEL", "value": "stub-embedding-model" },
+        { "name": "AI_REQUEST_TIMEOUT_MS", "value": "30000" },
+        { "name": "AWS_REGION", "value": "ap-northeast-2" },
+        { "name": "AWS_S3_BUCKET", "value": "" },
+        { "name": "AWS_SECRETS_PREFIX", "value": "/jinro-nachimban/staging/backend" }
+      ],
+      "secrets": [
+        { "name": "DATABASE_URL", "valueFrom": "replace-with-secret-arn" },
+        { "name": "JWT_ACCESS_SECRET", "valueFrom": "replace-with-secret-arn" },
+        { "name": "JWT_REFRESH_SECRET", "valueFrom": "replace-with-secret-arn" },
+        { "name": "JWT_STREAM_SECRET", "valueFrom": "replace-with-secret-arn" },
+        { "name": "AI_API_KEY", "valueFrom": "replace-with-secret-arn" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/jinro-backend-staging",
+          "awslogs-region": "ap-northeast-2",
+          "awslogs-stream-prefix": "backend"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:4000/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "startPeriod": 20,
+        "retries": 3
+      }
+    }
+  ]
+}

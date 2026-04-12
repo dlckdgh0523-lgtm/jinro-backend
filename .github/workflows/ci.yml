@@ -1,0 +1,93 @@
+name: backend-ci
+
+on:
+  push:
+    paths:
+      - "backend/**"
+  pull_request:
+    paths:
+      - "backend/**"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: jinro_nachimban
+          POSTGRES_USER: jinro_app
+          POSTGRES_PASSWORD: change-me
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U jinro_app -d jinro_nachimban"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: backend
+
+    env:
+      PORT: 4000
+      NODE_ENV: test
+      APP_BASE_URL: http://localhost:4000
+      LOG_LEVEL: info
+      CORS_ORIGIN: http://localhost:5173
+      DATABASE_URL: postgresql://jinro_app:change-me@localhost:5432/jinro_nachimban?schema=app&sslmode=disable
+      JWT_ACCESS_SECRET: replace-with-64-char-access-secret
+      JWT_REFRESH_SECRET: replace-with-64-char-refresh-secret
+      JWT_STREAM_SECRET: replace-with-64-char-stream-secret
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 14d
+      JWT_STREAM_EXPIRES_IN: 60s
+      RATE_LIMIT_WINDOW_MS: 900000
+      RATE_LIMIT_MAX: 200
+      AUTH_RATE_LIMIT_MAX: 20
+      SSE_HEARTBEAT_INTERVAL_MS: 15000
+      SSE_RETRY_INTERVAL_MS: 3000
+      AI_PROVIDER: stub
+      AI_MODEL_DEFAULT: stub-chat-model
+      AI_EMBEDDING_MODEL: stub-embedding-model
+      AI_REQUEST_TIMEOUT_MS: 30000
+      AWS_REGION: ap-northeast-2
+      AWS_SECRETS_PREFIX: /jinro-nachimban/backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Prisma validate
+        run: npm run prisma:validate
+
+      - name: Prisma generate
+        run: npm run prisma:generate
+
+      - name: Database connectivity check
+        run: echo "SELECT 1;" | npx prisma db execute --stdin --schema prisma/schema.prisma
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Docker build
+        run: docker build -t jinro-nachimban-backend .

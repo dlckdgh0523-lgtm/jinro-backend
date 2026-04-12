@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: jinro-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: jinro_nachimban
+      POSTGRES_USER: jinro_app
+      POSTGRES_PASSWORD: change-me
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jinro_app -d jinro_nachimban"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    container_name: jinro-backend-dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 4000
+      NODE_ENV: development
+      APP_BASE_URL: http://localhost:4000
+      LOG_LEVEL: debug
+      CORS_ORIGIN: http://localhost:5173
+      DATABASE_URL: postgresql://jinro_app:change-me@postgres:5432/jinro_nachimban?schema=app&sslmode=disable
+      JWT_ACCESS_SECRET: replace-with-64-char-access-secret
+      JWT_REFRESH_SECRET: replace-with-64-char-refresh-secret
+      JWT_STREAM_SECRET: replace-with-64-char-stream-secret
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 14d
+      JWT_STREAM_EXPIRES_IN: 60s
+      RATE_LIMIT_WINDOW_MS: 900000
+      RATE_LIMIT_MAX: 200
+      AUTH_RATE_LIMIT_MAX: 20
+      SSE_HEARTBEAT_INTERVAL_MS: 15000
+      SSE_RETRY_INTERVAL_MS: 3000
+      AI_PROVIDER: stub
+      AI_MODEL_DEFAULT: stub-chat-model
+      AI_EMBEDDING_MODEL: stub-embedding-model
+      AI_REQUEST_TIMEOUT_MS: 30000
+      AWS_REGION: ap-northeast-2
+      AWS_SECRETS_PREFIX: /jinro-nachimban/backend
+    ports:
+      - "4000:4000"
+    command: sh -c "npm run prisma:generate && npx prisma migrate deploy && npm run dev"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/health >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+volumes:
+  postgres_data:

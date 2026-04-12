@@ -1,0 +1,733 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
+  relationMode = "foreignKeys"
+  schemas      = ["app", "rag", "audit"]
+}
+
+enum UserRole {
+  STUDENT
+  TEACHER
+  ADMIN
+
+  @@schema("app")
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING
+  DISABLED
+  DELETED
+
+  @@schema("app")
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+
+  @@schema("app")
+}
+
+enum RefreshTokenStatus {
+  ACTIVE
+  ROTATED
+  REVOKED
+  EXPIRED
+
+  @@schema("app")
+}
+
+enum TrackType {
+  STEM
+  HUMANITIES
+  ARTS
+  UNDECIDED
+
+  @@schema("app")
+}
+
+enum SemesterTerm {
+  FIRST
+  SECOND
+  SUMMER
+  WINTER
+
+  @@schema("app")
+}
+
+enum ExamType {
+  MIDTERM
+  FINAL
+
+  @@schema("app")
+}
+
+enum StudyPlanSource {
+  MANUAL
+  AI
+
+  @@schema("app")
+}
+
+enum StudyTaskPriority {
+  HIGH
+  MEDIUM
+  LOW
+
+  @@schema("app")
+}
+
+enum NotificationType {
+  DANGER
+  WARNING
+  INFO
+  SUCCESS
+
+  @@schema("app")
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+  DISMISSED
+
+  @@schema("app")
+}
+
+enum CounselingRequestStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+
+  @@schema("app")
+}
+
+enum CounselingRequestType {
+  ACADEMIC
+  CAREER
+  EMOTIONAL
+  OTHER
+
+  @@schema("app")
+}
+
+enum CounselingMemoVisibility {
+  TEACHER_ONLY
+  STUDENT_SHARED
+
+  @@schema("app")
+}
+
+enum AdmissionType {
+  EARLY
+  REGULAR
+
+  @@schema("app")
+}
+
+enum AdmissionCategory {
+  STUDENT_RECORD_CURRICULUM
+  STUDENT_RECORD_COMPREHENSIVE
+  ESSAY
+  CSAT
+  PERFORMANCE
+  OTHER
+
+  @@schema("app")
+}
+
+enum RagSourceType {
+  PDF
+  HTML
+  CSV
+  XLSX
+  MANUAL
+
+  @@schema("rag")
+}
+
+enum RagDocumentStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+  ARCHIVED
+
+  @@schema("rag")
+}
+
+enum RagChunkStatus {
+  READY
+  EMBEDDED
+  FAILED
+
+  @@schema("rag")
+}
+
+enum RagIngestionStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELED
+
+  @@schema("rag")
+}
+
+enum AiConversationType {
+  COUNSELING
+  CAREER
+  INTERNAL_SUMMARY
+  GROWTH_REPORT
+  RAG_QUERY
+
+  @@schema("app")
+}
+
+enum AiMessageRole {
+  SYSTEM
+  USER
+  ASSISTANT
+  TOOL
+
+  @@schema("app")
+}
+
+enum AiMessageStatus {
+  PENDING
+  COMPLETED
+  FAILED
+
+  @@schema("app")
+}
+
+enum AiRoute {
+  LLM
+  RAG
+  HYBRID
+
+  @@schema("app")
+}
+
+enum AuditActorType {
+  USER
+  SYSTEM
+  JOB
+
+  @@schema("audit")
+}
+
+model User {
+  id               String           @id @default(uuid())
+  email            String           @unique
+  role             UserRole
+  status           UserStatus       @default(PENDING)
+  authProvider     AuthProvider     @default(LOCAL)
+  passwordHash     String?
+  deletedAt        DateTime?
+  lastLoginAt      DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  studentProfile   StudentProfile?
+  teacherProfile   TeacherProfile?
+  refreshTokens    RefreshToken[]
+  notifications    Notification[]
+  aiConversations  AiConversation[]
+  ragIngestionJobs RagIngestionJob[] @relation("RagJobInitiator")
+  auditLogs        AuditLog[]       @relation("AuditActor")
+
+  @@index([role, status])
+  @@schema("app")
+}
+
+model StudentProfile {
+  id                     String                     @id @default(uuid())
+  userId                 String                     @unique
+  displayName            String
+  schoolName             String
+  gradeLevel             Int
+  classLabel             String?
+  track                  TrackType                  @default(UNDECIDED)
+  academicNotes          String?
+  onboardingCompleted    Boolean                    @default(false)
+  onboardingStep         Int                        @default(0)
+  hasNaesin              Boolean?
+  hasSuneung             Boolean?
+  selectedSuneungSubjects String[]                  @default([])
+  targetCsatScore        Int?
+  currentAverageGrade    Float?
+  classroomId            String?
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
+  user                   User                       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  classroom              ClassRoom?                @relation("PrimaryClassroom", fields: [classroomId], references: [id], onDelete: SetNull)
+  assignments            TeacherStudentAssignment[]
+  examRecords            GradeExamRecord[]
+  semesterFinalGrades    SemesterFinalGrade[]
+  mockExamResults        MockExamResult[]
+  studyPlans             StudyPlan[]
+  counselingRequests     CounselingRequest[]        @relation("StudentRequests")
+  counselingMemos        CounselingMemo[]           @relation("MemoStudent")
+  goalSettings           GoalSetting[]
+  aiConversations        AiConversation[]           @relation("StudentConversations")
+
+  @@index([schoolName, gradeLevel, classLabel])
+  @@schema("app")
+}
+
+model TeacherProfile {
+  id                     String                     @id @default(uuid())
+  userId                 String                     @unique
+  displayName            String
+  schoolName             String
+  subjectAreas           String[]                   @default([])
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
+  user                   User                       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  homeroomClassRooms     ClassRoom[]                @relation("HomeroomClassrooms")
+  assignments            TeacherStudentAssignment[]
+  counselingRequests     CounselingRequest[]        @relation("TeacherRequests")
+  counselingMemos        CounselingMemo[]           @relation("MemoTeacher")
+  aiConversations        AiConversation[]           @relation("TeacherConversations")
+
+  @@index([schoolName])
+  @@schema("app")
+}
+
+model ClassRoom {
+  id               String                     @id @default(uuid())
+  schoolName       String
+  academicYear     Int
+  gradeLevel       Int
+  classNumber      Int
+  inviteCode       String                     @unique
+  name             String
+  homeroomTeacherId String
+  deletedAt        DateTime?
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+  homeroomTeacher  TeacherProfile             @relation("HomeroomClassrooms", fields: [homeroomTeacherId], references: [id], onDelete: Restrict)
+  students         StudentProfile[]           @relation("PrimaryClassroom")
+  assignments      TeacherStudentAssignment[]
+
+  @@unique([schoolName, academicYear, gradeLevel, classNumber])
+  @@index([homeroomTeacherId])
+  @@schema("app")
+}
+
+model TeacherStudentAssignment {
+  id              String         @id @default(uuid())
+  teacherProfileId String
+  studentProfileId String
+  classroomId      String
+  assignmentType   String         @default("HOMEROOM")
+  active           Boolean        @default(true)
+  startDate        DateTime       @default(now())
+  endDate          DateTime?
+  createdAt        DateTime       @default(now())
+  teacherProfile   TeacherProfile @relation(fields: [teacherProfileId], references: [id], onDelete: Restrict)
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Restrict)
+  classroom        ClassRoom      @relation(fields: [classroomId], references: [id], onDelete: Restrict)
+
+  @@unique([teacherProfileId, studentProfileId, classroomId, assignmentType])
+  @@index([studentProfileId, active])
+  @@schema("app")
+}
+
+model RefreshToken {
+  id            String             @id @default(uuid())
+  userId        String
+  familyId      String
+  tokenHash     String             @unique
+  status        RefreshTokenStatus @default(ACTIVE)
+  expiresAt     DateTime
+  lastUsedAt    DateTime?
+  revokedAt     DateTime?
+  userAgentHash String?
+  ipHash        String?
+  createdAt     DateTime           @default(now())
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([familyId])
+  @@schema("app")
+}
+
+model GradeExamRecord {
+  id               String       @id @default(uuid())
+  studentProfileId String
+  academicYear     Int
+  semesterTerm     SemesterTerm
+  semesterLabel    String
+  examType         ExamType
+  subjectName      String
+  score            Float
+  statusLabel      String?
+  memo             String?
+  savedAt          DateTime     @default(now())
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([studentProfileId, academicYear, semesterTerm, examType, subjectName])
+  @@index([studentProfileId, savedAt(sort: Desc)])
+  @@schema("app")
+}
+
+model SemesterFinalGrade {
+  id               String       @id @default(uuid())
+  studentProfileId String
+  academicYear     Int
+  semesterTerm     SemesterTerm
+  semesterLabel    String
+  subjectName      String
+  finalGrade       Float
+  credit           Int
+  applied          Boolean      @default(false)
+  savedAt          DateTime     @default(now())
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([studentProfileId, academicYear, semesterTerm, subjectName])
+  @@index([studentProfileId, savedAt(sort: Desc)])
+  @@schema("app")
+}
+
+model MockExamResult {
+  id               String       @id @default(uuid())
+  studentProfileId String
+  academicYear     Int
+  examMonth        Int
+  examLabel        String
+  subjectName      String
+  score            Float?
+  grade            Float?
+  savedAt          DateTime     @default(now())
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([studentProfileId, academicYear, examMonth, subjectName])
+  @@index([studentProfileId, savedAt(sort: Desc)])
+  @@schema("app")
+}
+
+model StudyPlan {
+  id                String          @id @default(uuid())
+  studentProfileId  String
+  weekStartDate     DateTime
+  weekEndDate       DateTime
+  source            StudyPlanSource @default(MANUAL)
+  completionRate    Int             @default(0)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  studentProfile    StudentProfile  @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  tasks             StudyTask[]
+
+  @@unique([studentProfileId, weekStartDate])
+  @@index([studentProfileId, weekStartDate])
+  @@schema("app")
+}
+
+model StudyTask {
+  id            String            @id @default(uuid())
+  studyPlanId    String
+  subject       String
+  task          String
+  dayLabel      String
+  dayOrder      Int
+  priority      StudyTaskPriority
+  done          Boolean           @default(false)
+  orderIndex    Int               @default(0)
+  completedAt   DateTime?
+  deletedAt     DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  studyPlan     StudyPlan         @relation(fields: [studyPlanId], references: [id], onDelete: Cascade)
+
+  @@index([studyPlanId, dayOrder, orderIndex])
+  @@schema("app")
+}
+
+model Notification {
+  id            String             @id @default(uuid())
+  userId        String
+  type          NotificationType
+  status        NotificationStatus @default(UNREAD)
+  category      String
+  title         String
+  body          String
+  dedupeKey     String?
+  relatedType   String?
+  relatedId     String?
+  payload       Json?
+  readAt        DateTime?
+  dismissedAt   DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, createdAt(sort: Desc)])
+  @@index([userId, dedupeKey])
+  @@schema("app")
+}
+
+model CounselingRequest {
+  id               String                   @id @default(uuid())
+  studentProfileId String
+  teacherProfileId String
+  type             CounselingRequestType
+  message          String
+  status           CounselingRequestStatus  @default(PENDING)
+  requestedAt      DateTime                 @default(now())
+  startedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  studentProfile   StudentProfile           @relation("StudentRequests", fields: [studentProfileId], references: [id], onDelete: Restrict)
+  teacherProfile   TeacherProfile           @relation("TeacherRequests", fields: [teacherProfileId], references: [id], onDelete: Restrict)
+  memos            CounselingMemo[]
+
+  @@index([teacherProfileId, status, requestedAt(sort: Desc)])
+  @@index([studentProfileId, requestedAt(sort: Desc)])
+  @@schema("app")
+}
+
+model CounselingMemo {
+  id               String                    @id @default(uuid())
+  counselingRequestId String?
+  studentProfileId String
+  teacherProfileId String
+  title            String
+  content          String
+  tag              String
+  visibility       CounselingMemoVisibility  @default(TEACHER_ONLY)
+  sharedAt         DateTime?
+  deletedAt        DateTime?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  counselingRequest CounselingRequest?       @relation(fields: [counselingRequestId], references: [id], onDelete: SetNull)
+  studentProfile   StudentProfile            @relation("MemoStudent", fields: [studentProfileId], references: [id], onDelete: Restrict)
+  teacherProfile   TeacherProfile            @relation("MemoTeacher", fields: [teacherProfileId], references: [id], onDelete: Restrict)
+
+  @@index([studentProfileId, createdAt(sort: Desc)])
+  @@index([teacherProfileId, createdAt(sort: Desc)])
+  @@schema("app")
+}
+
+model GoalSetting {
+  id                     String         @id @default(uuid())
+  studentProfileId       String
+  fieldGroup             String
+  universityId           String?
+  universityNameSnapshot String
+  departmentId           String?
+  departmentNameSnapshot String
+  targetGrade            Float?
+  targetScore            Int?
+  version                Int            @default(1)
+  isActive               Boolean        @default(true)
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  studentProfile         StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  university             University?    @relation(fields: [universityId], references: [id], onDelete: SetNull)
+  department             Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  @@index([studentProfileId, isActive, updatedAt(sort: Desc)])
+  @@schema("app")
+}
+
+model University {
+  id               String            @id @default(uuid())
+  name             String            @unique
+  region           String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  departments      Department[]
+  admissionRecords AdmissionRecord[]
+  goalSettings     GoalSetting[]
+
+  @@index([name])
+  @@schema("app")
+}
+
+model Department {
+  id               String            @id @default(uuid())
+  name             String
+  fieldGroup       String
+  universityId     String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  university       University?       @relation(fields: [universityId], references: [id], onDelete: SetNull)
+  admissionRecords AdmissionRecord[]
+  goalSettings     GoalSetting[]
+
+  @@unique([name, fieldGroup, universityId])
+  @@index([fieldGroup, name])
+  @@schema("app")
+}
+
+model AdmissionRecord {
+  id               String            @id @default(uuid())
+  universityId     String
+  departmentId     String?
+  year             Int
+  admissionType    AdmissionType
+  category         AdmissionCategory
+  cutGradeText     String
+  cutGradeNumeric  Float?
+  seats            Int
+  sourceName       String
+  sourceUrl        String?
+  updatedDate      DateTime
+  rawPayload       Json?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  university       University        @relation(fields: [universityId], references: [id], onDelete: Restrict)
+  department       Department?       @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  @@index([year, admissionType, category])
+  @@index([universityId, departmentId])
+  @@schema("app")
+}
+
+model AiConversation {
+  id               String              @id @default(uuid())
+  userId           String
+  studentProfileId String?
+  teacherProfileId String?
+  type             AiConversationType
+  route            AiRoute?
+  title            String?
+  latestSummary    String?
+  metadata         Json?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentProfile   StudentProfile?     @relation("StudentConversations", fields: [studentProfileId], references: [id], onDelete: SetNull)
+  teacherProfile   TeacherProfile?     @relation("TeacherConversations", fields: [teacherProfileId], references: [id], onDelete: SetNull)
+  messages         AiMessage[]
+
+  @@index([userId, type, updatedAt(sort: Desc)])
+  @@schema("app")
+}
+
+model AiMessage {
+  id                String          @id @default(uuid())
+  aiConversationId  String
+  role              AiMessageRole
+  status            AiMessageStatus @default(COMPLETED)
+  content           String
+  promptTemplateKey String?
+  modelName         String?
+  citations         Json?
+  tokenUsage        Json?
+  createdAt         DateTime        @default(now())
+  aiConversation    AiConversation  @relation(fields: [aiConversationId], references: [id], onDelete: Cascade)
+
+  @@index([aiConversationId, createdAt])
+  @@schema("app")
+}
+
+model RagSource {
+  id           String            @id @default(uuid())
+  sourceType   RagSourceType
+  name         String
+  sourceUrl    String?
+  checksum     String?           @unique
+  versionLabel String?
+  metadata     Json?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  documents    RagDocument[]
+  jobs         RagIngestionJob[]
+
+  @@index([sourceType, name])
+  @@schema("rag")
+}
+
+model RagDocument {
+  id            String            @id @default(uuid())
+  ragSourceId   String
+  title         String
+  externalRef   String?
+  status        RagDocumentStatus @default(PENDING)
+  year          Int?
+  admissionType String?
+  region        String?
+  citationLabel String?
+  rawText       String?
+  normalizedJson Json?
+  metadata      Json?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  ragSource     RagSource         @relation(fields: [ragSourceId], references: [id], onDelete: Cascade)
+  chunks        RagChunk[]
+
+  @@index([status, year, admissionType])
+  @@schema("rag")
+}
+
+model RagChunk {
+  id            String         @id @default(uuid())
+  ragDocumentId String
+  chunkIndex    Int
+  content       String
+  tokenCount    Int?
+  citationLocator String?
+  metadata      Json?
+  embedding     Json?
+  embeddingModel String?
+  status        RagChunkStatus @default(READY)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  ragDocument   RagDocument    @relation(fields: [ragDocumentId], references: [id], onDelete: Cascade)
+
+  @@unique([ragDocumentId, chunkIndex])
+  @@index([status, embeddingModel])
+  @@schema("rag")
+}
+
+model RagIngestionJob {
+  id              String             @id @default(uuid())
+  ragSourceId     String?
+  initiatedByUserId String?
+  status          RagIngestionStatus @default(QUEUED)
+  requestedAt     DateTime           @default(now())
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  errorMessage    String?
+  metrics         Json?
+  ragSource       RagSource?         @relation(fields: [ragSourceId], references: [id], onDelete: SetNull)
+  initiatedByUser User?              @relation("RagJobInitiator", fields: [initiatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, requestedAt(sort: Desc)])
+  @@schema("rag")
+}
+
+model AuditLog {
+  id            String         @id @default(uuid())
+  actorType     AuditActorType
+  actorUserId   String?
+  action        String
+  resourceType  String
+  resourceId    String
+  requestId     String?
+  ipHash        String?
+  userAgentHash String?
+  beforeJson    Json?
+  afterJson     Json?
+  createdAt     DateTime       @default(now())
+  actorUser     User?          @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([resourceType, resourceId, createdAt(sort: Desc)])
+  @@index([actorUserId, createdAt(sort: Desc)])
+  @@schema("audit")
+}

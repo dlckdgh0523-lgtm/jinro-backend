@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+.env.local
+coverage
+tmp
+.pgdata
+.server-smoke.pid
+.server-smoke.log
+*.log
