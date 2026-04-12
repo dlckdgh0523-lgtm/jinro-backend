@@ -1,8 +1,10 @@
+import { isIP } from "node:net";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import express from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import type { Request } from "express";
 import pino from "pino";
 import pinoHttp from "pino-http";
 import { env } from "./config/env";
@@ -14,10 +16,36 @@ const logger = pino({
   level: env.LOG_LEVEL
 });
 
+const trustedProxySubnets = ["loopback", "linklocal", "uniquelocal"];
+
+const resolveClientIp = (req: Request) => {
+  const cfConnectingIp = req.headers["cf-connecting-ip"];
+  const trueClientIp = req.headers["true-client-ip"];
+
+  const headerIp =
+    (typeof cfConnectingIp === "string" && isIP(cfConnectingIp) ? cfConnectingIp : null) ??
+    (typeof trueClientIp === "string" && isIP(trueClientIp) ? trueClientIp : null);
+
+  if (headerIp) {
+    return headerIp;
+  }
+
+  if (req.ip && isIP(req.ip)) {
+    return req.ip;
+  }
+
+  return req.socket.remoteAddress ?? "unknown";
+};
+
+const shouldSkipRateLimit = (req: Request) =>
+  req.headers["render-health-check"] === "1" ||
+  req.path === "/health" ||
+  req.path === "/health/ready";
+
 export const buildApp = () => {
   const app = express();
 
-  app.set("trust proxy", env.NODE_ENV === "production");
+  app.set("trust proxy", env.NODE_ENV === "production" ? trustedProxySubnets : false);
   app.disable("x-powered-by");
 
   app.use(
@@ -67,7 +95,9 @@ export const buildApp = () => {
       windowMs: env.RATE_LIMIT_WINDOW_MS,
       max: env.AUTH_RATE_LIMIT_MAX,
       standardHeaders: true,
-      legacyHeaders: false
+      legacyHeaders: false,
+      keyGenerator: resolveClientIp,
+      skip: shouldSkipRateLimit
     })
   );
   app.use(
@@ -75,7 +105,9 @@ export const buildApp = () => {
       windowMs: env.RATE_LIMIT_WINDOW_MS,
       max: env.RATE_LIMIT_MAX,
       standardHeaders: true,
-      legacyHeaders: false
+      legacyHeaders: false,
+      keyGenerator: resolveClientIp,
+      skip: shouldSkipRateLimit
     })
   );
 
