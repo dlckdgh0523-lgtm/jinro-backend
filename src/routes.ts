@@ -14,6 +14,10 @@ import { registerStudyPlanRoutes } from "./modules/study-plans";
 export const buildRoutes = () => {
   const router = Router();
 
+  router.get("/", (_req, res) => {
+    res.status(200).json({ message: "jinro-nachimban-backend is running" });
+  });
+
   registerHealthRoutes(router);
 
   const v1Router = Router();
