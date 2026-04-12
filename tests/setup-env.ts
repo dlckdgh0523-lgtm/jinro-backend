@@ -3,7 +3,7 @@ process.env.PORT ??= "4000";
 process.env.APP_BASE_URL ??= "http://localhost:4000";
 process.env.LOG_LEVEL ??= "silent";
 process.env.CORS_ORIGIN ??= "http://localhost:5173";
-process.env.DATABASE_URL ??= "postgresql://postgres:postgres@localhost:5432/jinro?schema=app";
+process.env.DATABASE_URL ??= "postgresql://postgres:postgres@localhost:5432/jinro?schema=public";
 process.env.JWT_ACCESS_SECRET ??= "test-access-secret-should-be-at-least-32-chars";
 process.env.JWT_REFRESH_SECRET ??= "test-refresh-secret-should-be-at-least-32-chars";
 process.env.JWT_STREAM_SECRET ??= "test-stream-secret-should-be-at-least-32-chars";

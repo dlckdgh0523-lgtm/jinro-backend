@@ -6,7 +6,7 @@ datasource db {
   provider     = "postgresql"
   url          = env("DATABASE_URL")
   relationMode = "foreignKeys"
-  schemas      = ["app", "rag", "audit"]
+  schemas      = ["public", "rag", "audit"]
 }
 
 enum UserRole {
@@ -14,7 +14,7 @@ enum UserRole {
   TEACHER
   ADMIN
 
-  @@schema("app")
+  @@schema("public")
 }
 
 enum UserStatus {
@@ -23,14 +23,14 @@ enum UserStatus {
   DISABLED
   DELETED
 
-  @@schema("app")
+  @@schema("public")
 }
 
 enum AuthProvider {
   LOCAL
   GOOGLE
 
-  @@schema("app")
+  @@schema("public")
 }
 
 enum RefreshTokenStatus {
@@ -39,7 +39,7 @@ enum RefreshTokenStatus {
   REVOKED
   EXPIRED
 
-  @@schema("app")
+  @@schema("public")
 }
 
 enum TrackType {
@@ -48,7 +48,7 @@ enum TrackType {
   ARTS
   UNDECIDED
 
-  @@schema("app")
+  @@schema("public")
 }
 
 enum SemesterTerm {
@@ -57,21 +57,21 @@ enum SemesterTerm {
   SUMMER
   WINTER
 
-  @@schema("app")
+  @@schema("public")
 }
 
 enum ExamType {
   MIDTERM
   FINAL
 
-  @@schema("app")
+  @@schema("public")
 }
 
 enum StudyPlanSource {
   MANUAL
   AI
 
-  @@schema("app")
+  @@schema("public")
 }
 
 enum StudyTaskPriority {
@@ -79,7 +79,7 @@ enum StudyTaskPriority {
   MEDIUM
   LOW
 
-  @@schema("app")
+  @@schema("public")
 }
 
 enum NotificationType {
@@ -88,7 +88,7 @@ enum NotificationType {
   INFO
   SUCCESS
 
-  @@schema("app")
+  @@schema("public")
 }
 
 enum NotificationStatus {
@@ -96,7 +96,7 @@ enum NotificationStatus {
   READ
   DISMISSED
 
-  @@schema("app")
+  @@schema("public")
 }
 
 enum CounselingRequestStatus {
@@ -105,7 +105,7 @@ enum CounselingRequestStatus {
   COMPLETED
   CANCELED
 
-  @@schema("app")
+  @@schema("public")
 }
 
 enum CounselingRequestType {
@@ -114,21 +114,21 @@ enum CounselingRequestType {
   EMOTIONAL
   OTHER
 
-  @@schema("app")
+  @@schema("public")
 }
 
 enum CounselingMemoVisibility {
   TEACHER_ONLY
   STUDENT_SHARED
 
-  @@schema("app")
+  @@schema("public")
 }
 
 enum AdmissionType {
   EARLY
   REGULAR
 
-  @@schema("app")
+  @@schema("public")
 }
 
 enum AdmissionCategory {
@@ -139,7 +139,7 @@ enum AdmissionCategory {
   PERFORMANCE
   OTHER
 
-  @@schema("app")
+  @@schema("public")
 }
 
 enum RagSourceType {
@@ -187,7 +187,7 @@ enum AiConversationType {
   GROWTH_REPORT
   RAG_QUERY
 
-  @@schema("app")
+  @@schema("public")
 }
 
 enum AiMessageRole {
@@ -196,7 +196,7 @@ enum AiMessageRole {
   ASSISTANT
   TOOL
 
-  @@schema("app")
+  @@schema("public")
 }
 
 enum AiMessageStatus {
@@ -204,7 +204,7 @@ enum AiMessageStatus {
   COMPLETED
   FAILED
 
-  @@schema("app")
+  @@schema("public")
 }
 
 enum AiRoute {
@@ -212,7 +212,7 @@ enum AiRoute {
   RAG
   HYBRID
 
-  @@schema("app")
+  @@schema("public")
 }
 
 enum AuditActorType {
@@ -243,7 +243,7 @@ model User {
   auditLogs        AuditLog[]       @relation("AuditActor")
 
   @@index([role, status])
-  @@schema("app")
+  @@schema("public")
 }
 
 model StudentProfile {
@@ -278,7 +278,7 @@ model StudentProfile {
   aiConversations        AiConversation[]           @relation("StudentConversations")
 
   @@index([schoolName, gradeLevel, classLabel])
-  @@schema("app")
+  @@schema("public")
 }
 
 model TeacherProfile {
@@ -297,7 +297,7 @@ model TeacherProfile {
   aiConversations        AiConversation[]           @relation("TeacherConversations")
 
   @@index([schoolName])
-  @@schema("app")
+  @@schema("public")
 }
 
 model ClassRoom {
@@ -318,7 +318,7 @@ model ClassRoom {
 
   @@unique([schoolName, academicYear, gradeLevel, classNumber])
   @@index([homeroomTeacherId])
-  @@schema("app")
+  @@schema("public")
 }
 
 model TeacherStudentAssignment {
@@ -337,7 +337,7 @@ model TeacherStudentAssignment {
 
   @@unique([teacherProfileId, studentProfileId, classroomId, assignmentType])
   @@index([studentProfileId, active])
-  @@schema("app")
+  @@schema("public")
 }
 
 model RefreshToken {
@@ -356,7 +356,7 @@ model RefreshToken {
 
   @@index([userId, status])
   @@index([familyId])
-  @@schema("app")
+  @@schema("public")
 }
 
 model GradeExamRecord {
@@ -377,7 +377,7 @@ model GradeExamRecord {
 
   @@unique([studentProfileId, academicYear, semesterTerm, examType, subjectName])
   @@index([studentProfileId, savedAt(sort: Desc)])
-  @@schema("app")
+  @@schema("public")
 }
 
 model SemesterFinalGrade {
@@ -397,7 +397,7 @@ model SemesterFinalGrade {
 
   @@unique([studentProfileId, academicYear, semesterTerm, subjectName])
   @@index([studentProfileId, savedAt(sort: Desc)])
-  @@schema("app")
+  @@schema("public")
 }
 
 model MockExamResult {
@@ -416,7 +416,7 @@ model MockExamResult {
 
   @@unique([studentProfileId, academicYear, examMonth, subjectName])
   @@index([studentProfileId, savedAt(sort: Desc)])
-  @@schema("app")
+  @@schema("public")
 }
 
 model StudyPlan {
@@ -433,7 +433,7 @@ model StudyPlan {
 
   @@unique([studentProfileId, weekStartDate])
   @@index([studentProfileId, weekStartDate])
-  @@schema("app")
+  @@schema("public")
 }
 
 model StudyTask {
@@ -453,7 +453,7 @@ model StudyTask {
   studyPlan     StudyPlan         @relation(fields: [studyPlanId], references: [id], onDelete: Cascade)
 
   @@index([studyPlanId, dayOrder, orderIndex])
-  @@schema("app")
+  @@schema("public")
 }
 
 model Notification {
@@ -476,7 +476,7 @@ model Notification {
 
   @@index([userId, status, createdAt(sort: Desc)])
   @@index([userId, dedupeKey])
-  @@schema("app")
+  @@schema("public")
 }
 
 model CounselingRequest {
@@ -497,7 +497,7 @@ model CounselingRequest {
 
   @@index([teacherProfileId, status, requestedAt(sort: Desc)])
   @@index([studentProfileId, requestedAt(sort: Desc)])
-  @@schema("app")
+  @@schema("public")
 }
 
 model CounselingMemo {
@@ -519,7 +519,7 @@ model CounselingMemo {
 
   @@index([studentProfileId, createdAt(sort: Desc)])
   @@index([teacherProfileId, createdAt(sort: Desc)])
-  @@schema("app")
+  @@schema("public")
 }
 
 model GoalSetting {
@@ -541,7 +541,7 @@ model GoalSetting {
   department             Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
 
   @@index([studentProfileId, isActive, updatedAt(sort: Desc)])
-  @@schema("app")
+  @@schema("public")
 }
 
 model University {
@@ -555,7 +555,7 @@ model University {
   goalSettings     GoalSetting[]
 
   @@index([name])
-  @@schema("app")
+  @@schema("public")
 }
 
 model Department {
@@ -571,7 +571,7 @@ model Department {
 
   @@unique([name, fieldGroup, universityId])
   @@index([fieldGroup, name])
-  @@schema("app")
+  @@schema("public")
 }
 
 model AdmissionRecord {
@@ -595,7 +595,7 @@ model AdmissionRecord {
 
   @@index([year, admissionType, category])
   @@index([universityId, departmentId])
-  @@schema("app")
+  @@schema("public")
 }
 
 model AiConversation {
@@ -616,7 +616,7 @@ model AiConversation {
   messages         AiMessage[]
 
   @@index([userId, type, updatedAt(sort: Desc)])
-  @@schema("app")
+  @@schema("public")
 }
 
 model AiMessage {
@@ -633,7 +633,7 @@ model AiMessage {
   aiConversation    AiConversation  @relation(fields: [aiConversationId], references: [id], onDelete: Cascade)
 
   @@index([aiConversationId, createdAt])
-  @@schema("app")
+  @@schema("public")
 }
 
 model RagSource {

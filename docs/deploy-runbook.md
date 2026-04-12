@@ -21,7 +21,7 @@ Do not move this backend into Supabase Edge Functions today.
 
 - Supabase session pooler connection string on port `5432`
 - custom Prisma DB user
-- schema privileges for `app`, `rag`, `audit`
+- schema privileges for `public`, `rag`, `audit`
 - optional: disable Data API if Prisma is the only access path
 
 ## Required Render inputs
@@ -65,7 +65,7 @@ Do not move this backend into Supabase Edge Functions today.
 ## Cutover sequence
 
 1. Create Supabase project.
-2. Create Prisma DB user and grant privileges on `app`, `rag`, `audit`.
+2. Create Prisma DB user and grant privileges on `public`, `rag`, `audit`.
 3. Copy the Supabase session pooler connection string ending with `5432`.
 4. Set all Render environment variables without committing any `.env` file.
 5. Deploy Render Web Service using `render.yaml` or equivalent dashboard settings.
@@ -79,7 +79,7 @@ Do not move this backend into Supabase Edge Functions today.
 - Render service is configured with root directory `backend`.
 - Render service instance count is `1`.
 - Supabase connection string uses session pooler port `5432`.
-- The connection string includes `schema=app`.
+- The connection string includes `schema=public`.
 - No `.env` file or real secret is committed.
 - Current backend CI is green.
 
