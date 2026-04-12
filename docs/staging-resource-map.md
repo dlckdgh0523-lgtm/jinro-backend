@@ -54,6 +54,7 @@ This document lists the real values that must be entered by a person before a st
 | --- | --- | --- |
 | Runtime key set alignment | `npm run verify:staging-config` | `backend/.env.example`, `backend/docs/aws-staging-env.md`, `backend/deploy/ecs/task-definition.staging.json` |
 | Task definition JSON structure | `npm run verify:taskdef` | `backend/deploy/ecs/task-definition.staging.json` |
+| CD workflow and task definition coupling | `npm run verify:cd-staging` | `.github/workflows/cd-staging.yml`, `backend/deploy/ecs/task-definition.staging.json` |
 | CD workflow deploy order | File review | `.github/workflows/cd-staging.yml` |
 | Migrate-before-rollout order | File review | `.github/workflows/cd-staging.yml`, `backend/docs/deploy-runbook.md` |
 | Human input inventory | Document review | `backend/docs/aws-staging-env.md`, `backend/docs/staging-deploy-checklist.md`, `backend/docs/staging-resource-map.md` |

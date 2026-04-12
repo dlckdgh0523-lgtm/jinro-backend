@@ -5,8 +5,8 @@ import { prisma } from "./infra/prisma";
 
 const app = buildApp();
 
-const server = app.listen(env.PORT, () => {
-  console.log(`jinro-nachimban-backend listening on ${env.PORT}`);
+const server = app.listen(env.PORT, "0.0.0.0", () => {
+  console.log(`jinro-nachimban-backend listening on 0.0.0.0:${env.PORT}`);
 });
 
 const shutdown = async (signal: string) => {

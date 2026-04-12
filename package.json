@@ -21,6 +21,7 @@
     "verify:local": "powershell -ExecutionPolicy Bypass -File scripts/verify-local.ps1",
     "verify:staging-config": "node scripts/validate-staging-env.mjs",
     "verify:taskdef": "node scripts/validate-taskdef-staging.mjs",
+    "verify:cd-staging": "node scripts/validate-cd-staging.mjs",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
     "prisma:migrate:dev": "prisma migrate dev",

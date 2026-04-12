@@ -19,7 +19,7 @@ const attachRefreshTokenCookie = (res: Response, refreshToken: string) => {
   res.cookie(env.REFRESH_TOKEN_COOKIE_NAME, refreshToken, {
     httpOnly: true,
     secure: env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: env.NODE_ENV === "production" ? "none" : "lax",
     path: "/v1/auth",
     maxAge: REFRESH_TOKEN_TTL_MS
   });
@@ -29,7 +29,7 @@ const clearRefreshTokenCookie = (res: Response) => {
   res.clearCookie(env.REFRESH_TOKEN_COOKIE_NAME, {
     httpOnly: true,
     secure: env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: env.NODE_ENV === "production" ? "none" : "lax",
     path: "/v1/auth"
   });
 };
