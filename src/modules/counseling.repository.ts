@@ -6,7 +6,8 @@ export const counselingRepository = {
       where: {
         studentProfileId,
         status
-      },
+      },      take: 20,
+
       orderBy: { requestedAt: "desc" },
       include: {
         studentProfile: true
