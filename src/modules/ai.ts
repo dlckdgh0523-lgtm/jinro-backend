@@ -15,7 +15,11 @@ type Citation = {
 };
 
 interface LlmProvider {
-  generate(input: { systemPrompt: string; message: string; citations?: Citation[] }): Promise<{ text: string; model: string }>;
+  generate(input: {
+    systemPrompt: string;
+    message: string;
+    citations?: Citation[];
+  }): Promise<{ text: string; model: string }>;
 }
 
 interface RagRetriever {
@@ -23,7 +27,11 @@ interface RagRetriever {
 }
 
 class StubLlmProvider implements LlmProvider {
-  public async generate(input: { systemPrompt: string; message: string; citations?: Citation[] }) {
+  public async generate(input: {
+    systemPrompt: string;
+    message: string;
+    citations?: Citation[];
+  }) {
     const citationHint =
       input.citations && input.citations.length > 0
         ? `\n\n참고 근거 ${input.citations.length}건을 반영한 초안 응답입니다.`
@@ -37,46 +45,47 @@ class StubLlmProvider implements LlmProvider {
 }
 
 /**
- * ⚠️ OpenAI LLM Provider
- * 
+ * OpenAI LLM Provider
+ *
  * 환경변수:
- * - OPENAI_API_KEY: OpenAI API 키 (필수, .env에 설정 필요)
- * - AI_MODEL_DEFAULT: 사용할 모델명 (기본값: gpt-4o-mini, 환경변수로 override 가능)
+ * - OPENAI_API_KEY 또는 AI_API_KEY: OpenAI API 키
+ * - AI_MODEL_DEFAULT: 사용할 모델명 (예: gpt-4o-mini, gpt-4.1-mini)
  * - OPENAI_BASE_URL: API 엔드포인트 (기본값: https://api.openai.com/v1)
- * 
- * 사용 모델:
- * - gpt-4o-mini (권장, 저비용)
- * - gpt-4-turbo (고품질)
- * - o1-mini (추론 최적화)
- * 
- * 참고: 실제 호출을 위해서는 OPENAI_API_KEY를 .env에 설정해야 합니다.
+ * - AI_REQUEST_TIMEOUT_MS: 요청 타임아웃(ms)
  */
 class OpenAiLlmProvider implements LlmProvider {
   private apiKey: string;
   private model: string;
   private baseUrl: string;
+  private timeoutMs: number;
 
   constructor() {
     this.apiKey = env.OPENAI_API_KEY || env.AI_API_KEY || "";
     this.model = env.AI_MODEL_DEFAULT || "gpt-4o-mini";
     this.baseUrl = env.OPENAI_BASE_URL || "https://api.openai.com/v1";
+    this.timeoutMs = env.AI_REQUEST_TIMEOUT_MS;
 
     if (!this.apiKey) {
       throw new Error(
-        "OpenAI API key not configured. " +
-        "Set OPENAI_API_KEY or AI_API_KEY environment variable to use OpenAI provider."
+        "OpenAI API key not configured. Set OPENAI_API_KEY or AI_API_KEY to use OpenAI provider."
       );
     }
   }
 
-  public async generate(input: { systemPrompt: string; message: string; citations?: Citation[] }) {
+  public async generate(input: {
+    systemPrompt: string;
+    message: string;
+    citations?: Citation[];
+  }) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
+
     try {
-      // OpenAI API 호출
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${this.apiKey}`
+          Authorization: `Bearer ${this.apiKey}`
         },
         body: JSON.stringify({
           model: this.model,
@@ -91,89 +100,39 @@ class OpenAiLlmProvider implements LlmProvider {
             }
           ],
           temperature: 0.7,
-          max_tokens: 1024,
-          timeout: env.AI_REQUEST_TIMEOUT_MS
-        })
+          max_tokens: 1024
+        }),
+        signal: controller.signal
       });
 
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`OpenAI API error: ${response.status} - ${error}`);
+        const errorText = await response.text();
+        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
       }
 
-      const data = await response.json() as { choices: Array<{ message: { content: string } }> };
-      const responseText = data.choices?.[0]?.message?.content || "응답을 생성할 수 없습니다.";
+      const data = (await response.json()) as {
+        choices?: Array<{
+          message?: {
+            content?: string;
+          };
+        }>;
+      };
+
+      const responseText =
+        data.choices?.[0]?.message?.content?.trim() ||
+        "응답을 생성할 수 없습니다.";
 
       return {
         text: responseText,
         model: this.model
       };
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      const errorMsg =
+        error instanceof Error ? error.message : "Unknown error";
       throw new Error(`OpenAI provider failed: ${errorMsg}`);
+    } finally {
+      clearTimeout(timeoutId);
     }
-  }
-}
-
-/**
- * ⚠️ OpenAI LLM Provider
- * 
- * 환경변수:
- * - OPENAI_API_KEY: OpenAI API 키 (필수)
- * - AI_MODEL_DEFAULT: 사용할 모델명 (기본값: gpt-4o-mini)
- * - OPENAI_BASE_URL: API 엔드포인트 (기본값: https://api.openai.com/v1)
- * - AI_REQUEST_TIMEOUT_MS: 타임아웃 시간 (기본값: 30000)
- * 
- * 다음 턴에서 실제 구현:
- * 1. openai 패키지 설치 (npm install openai)
- * 2. OPENAI_API_KEY 주입
- * 3. 실제 호출 로직 추가
- */
-class OpenAiLlmProvider implements LlmProvider {
-  private apiKey: string;
-  private model: string;
-  private baseUrl: string;
-  private timeout: number;
-
-  constructor(apiKey: string, model: string, baseUrl: string, timeout: number) {
-    this.apiKey = apiKey;
-    this.model = model;
-    this.baseUrl = baseUrl;
-    this.timeout = timeout;
-  }
-
-  public async generate(input: { systemPrompt: string; message: string; citations?: Citation[] }) {
-    // ⚠️ 이 부분은 다음 턴에서 실제 OpenAI 호출로 교체됨
-    // 현재는 stub처럼 동작하되, 구조만 OpenAI 형식으로 준비
-    
-    const citationHint =
-      input.citations && input.citations.length > 0
-        ? `\n\n참고 근거 ${input.citations.length}건을 반영한 응답입니다.`
-        : "";
-
-    // 실제 구현 시 여기서:
-    // const response = await fetch(`${this.baseUrl}/chat/completions`, {
-    //   method: "POST",
-    //   headers: {
-    //     "Authorization": `Bearer ${this.apiKey}`,
-    //     "Content-Type": "application/json"
-    //   },
-    //   body: JSON.stringify({
-    //     model: this.model,
-    //     messages: [
-    //       { role: "system", content: input.systemPrompt },
-    //       { role: "user", content: input.message }
-    //     ],
-    //     temperature: 0.7,
-    //     max_tokens: 1000,
-    //     timeout: this.timeout
-    //   })
-    // });
-
-    return {
-      text: `${input.systemPrompt}\n\n질문: ${input.message}\n\n[OpenAI 모델: ${this.model}]${citationHint}`,
-      model: this.model
-    };
   }
 }
 
@@ -227,20 +186,17 @@ class StubRagRetriever implements RagRetriever {
 const llmProvider = (() => {
   if (env.AI_PROVIDER === "openai") {
     const apiKey = env.OPENAI_API_KEY || env.AI_API_KEY;
+
     if (!apiKey) {
       console.warn(
-        "⚠️  AI_PROVIDER=openai 이지만 OPENAI_API_KEY가 없습니다. Stub 모드로 폴백합니다."
+        "⚠️ AI_PROVIDER=openai 이지만 OPENAI_API_KEY가 없습니다. Stub 모드로 폴백합니다."
       );
       return new StubLlmProvider();
     }
-    return new OpenAiLlmProvider(
-      apiKey,
-      env.AI_MODEL_DEFAULT,
-      env.OPENAI_BASE_URL,
-      env.AI_REQUEST_TIMEOUT_MS
-    );
+
+    return new OpenAiLlmProvider();
   }
-  // 기본값: stub
+
   return new StubLlmProvider();
 })();
 
@@ -338,7 +294,9 @@ export const registerAiRoutes = (router: Router) => {
             : undefined;
 
       const route = detectRoute(req.body.message);
-      const citations = route === "LLM" ? [] : await ragRetriever.search(req.body.message);
+      const citations =
+        route === "LLM" ? [] : await ragRetriever.search(req.body.message);
+
       const response = await llmProvider.generate({
         systemPrompt:
           route === "HYBRID"
@@ -388,7 +346,8 @@ export const registerAiRoutes = (router: Router) => {
             : undefined;
 
       const response = await llmProvider.generate({
-        systemPrompt: "학생의 흥미/적성/성적을 기반으로 진로 대화를 진행하는 career-chat 응답입니다.",
+        systemPrompt:
+          "학생의 흥미/적성/성적을 기반으로 진로 대화를 진행하는 career-chat 응답입니다.",
         message: req.body.message
       });
 
@@ -423,8 +382,10 @@ export const registerAiRoutes = (router: Router) => {
     validate(chatSchema),
     asyncHandler(async (req: AuthenticatedRequest, res) => {
       const citations = await ragRetriever.search(req.body.message);
+
       const response = await llmProvider.generate({
-        systemPrompt: "입시정보 RAG 질의에 대해 인용 근거를 포함한 답변 초안을 생성합니다.",
+        systemPrompt:
+          "입시정보 RAG 질의에 대해 인용 근거를 포함한 답변 초안을 생성합니다.",
         message: req.body.message,
         citations
       });
