@@ -70,8 +70,9 @@ export const registerInquiryRoutes = (router: Router) => {
     "/inquiries/:inquiryId",
     authenticate,
     asyncHandler(async (req: AuthenticatedRequest, res) => {
+      const inquiryId = Array.isArray(req.params.inquiryId) ? req.params.inquiryId[0] : req.params.inquiryId;
       const inquiry = await prisma.inquiry.findUnique({
-        where: { id: req.params.inquiryId }
+        where: { id: inquiryId }
       });
 
       if (!inquiry || inquiry.userId !== req.auth!.sub) {

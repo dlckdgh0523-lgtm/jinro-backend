@@ -1,7 +1,7 @@
 import { prisma } from "../infra/prisma";
 
 export const counselingRepository = {
-  listRequestsByStudent(studentProfileId: string, status?: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELED") {
+  listRequestsByStudent(studentProfileId: string, status?: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELED" | "REJECTED") {
     return prisma.counselingRequest.findMany({
       where: {
         studentProfileId,
@@ -17,7 +17,7 @@ export const counselingRepository = {
   listRequestsByTeacher(
     teacherProfileId: string,
     studentProfileId?: string,
-    status?: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELED"
+    status?: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELED" | "REJECTED"
   ) {
     return prisma.counselingRequest.findMany({
       where: {

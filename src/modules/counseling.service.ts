@@ -2,6 +2,7 @@ import { setAuditContext } from "../infra/audit";
 import { prisma } from "../infra/prisma";
 import { sseBroker } from "../infra/realtime";
 import type { AuthenticatedRequest } from "../infra/security";
+import type { CounselingRequestStatus } from "@prisma/client";
 import { ApiError } from "../common/http";
 import { ensureTeacherProfileId, resolveStudentProfileId } from "../common/domain";
 import { counselingRepository } from "./counseling.repository";
@@ -28,7 +29,7 @@ const requestTypeToFront = (value: "ACADEMIC" | "CAREER" | "EMOTIONAL" | "OTHER"
   return "기타";
 };
 
-const requestStatusToFront = (value: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELED" | "REJECTED") => {
+const requestStatusToFront = (value: CounselingRequestStatus | null | undefined) => {
   if (value === "IN_PROGRESS") return "in_progress";
   if (value === "COMPLETED") return "completed";
   if (value === "CANCELED") return "canceled";
