@@ -3,6 +3,7 @@ import { registerAdmissionRoutes } from "./modules/admissions";
 import { registerAiRoutes } from "./modules/ai";
 import { registerAuthRoutes } from "./modules/auth";
 import { registerCounselingRoutes } from "./modules/counseling";
+import { registerInquiryRoutes } from "./modules/inquiry";
 import { registerDashboardRoutes } from "./modules/dashboard";
 import { registerGoalRoutes } from "./modules/goals";
 import { registerGradeRoutes } from "./modules/grades";
@@ -33,6 +34,7 @@ export const buildRoutes = () => {
   registerDashboardRoutes(v1Router);
   registerAdmissionRoutes(v1Router);
   registerAiRoutes(v1Router);
+  registerInquiryRoutes(v1Router);
 
   return router;
 };

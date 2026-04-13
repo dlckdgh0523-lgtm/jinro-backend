@@ -7,7 +7,7 @@ export const createRequestSchema = z.object({
 
 export const requestQuerySchema = z.object({
   studentId: z.string().uuid().optional(),
-  status: z.enum(["pending", "in_progress", "completed", "canceled"]).optional()
+  status: z.enum(["pending", "in_progress", "completed", "canceled", "rejected"]).optional()
 });
 
 export const requestParamsSchema = z.object({
@@ -15,7 +15,7 @@ export const requestParamsSchema = z.object({
 });
 
 export const updateRequestStatusSchema = z.object({
-  status: z.enum(["pending", "in_progress", "completed", "canceled"])
+  status: z.enum(["pending", "in_progress", "completed", "canceled", "rejected"])
 });
 
 export const memoQuerySchema = z.object({
@@ -28,7 +28,7 @@ export const createMemoSchema = z.object({
   subject: z.string().min(1),
   content: z.string().min(1),
   tag: z.string().min(1),
-  shareWithStudent: z.boolean().default(true)
+  shareWithStudent: z.boolean().default(false)
 });
 
 export const memoParamsSchema = z.object({

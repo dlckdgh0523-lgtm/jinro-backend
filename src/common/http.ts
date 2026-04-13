@@ -37,12 +37,20 @@ export class ApiError extends Error {
   public readonly statusCode: number;
   public readonly code: ApiErrorCode;
   public readonly details?: unknown;
+  public readonly originalError?: unknown;
 
-  public constructor(statusCode: number, code: ApiErrorCode, message: string, details?: unknown) {
+  public constructor(
+    statusCode: number,
+    code: ApiErrorCode,
+    message: string,
+    details?: unknown,
+    originalError?: unknown
+  ) {
     super(message);
     this.statusCode = statusCode;
     this.code = code;
     this.details = details;
+    this.originalError = originalError;
   }
 }
 
@@ -120,6 +128,28 @@ export const errorHandler = (
   const statusCode = error instanceof ApiError ? error.statusCode : 500;
   const code: ApiErrorCode = error instanceof ApiError ? error.code : "INTERNAL_ERROR";
   const details = error instanceof ApiError ? error.details : undefined;
+  const originalError = error instanceof ApiError ? error.originalError : undefined;
+  const requestLogger = (
+    req as RequestContextRequest & {
+      log?: {
+        error: (payload: unknown, message?: string) => void;
+      };
+    }
+  ).log;
+
+  if (statusCode >= 500) {
+    requestLogger?.error(
+      {
+        err: originalError ?? error,
+        requestId: req.requestId ?? "unknown",
+        code,
+        details,
+        method: req.method,
+        path: req.originalUrl
+      },
+      "request failed"
+    );
+  }
 
   const body: ApiFailure = {
     success: false,

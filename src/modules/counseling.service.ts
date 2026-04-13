@@ -15,23 +15,24 @@ import type {
 } from "./counseling.validator";
 
 const requestTypeToDb = (value: string) => {
-  if (value === "?숈뾽 怨좊?") return "ACADEMIC";
-  if (value === "吏꾨줈 怨좊?") return "CAREER";
-  if (value === "?뺤꽌??吏??") return "EMOTIONAL";
+  if (value === "학업 고민") return "ACADEMIC";
+  if (value === "진로 고민") return "CAREER";
+  if (value === "정서적 지원") return "EMOTIONAL";
   return "OTHER";
 };
 
 const requestTypeToFront = (value: "ACADEMIC" | "CAREER" | "EMOTIONAL" | "OTHER") => {
-  if (value === "ACADEMIC") return "?숈뾽 怨좊?";
-  if (value === "CAREER") return "吏꾨줈 怨좊?";
-  if (value === "EMOTIONAL") return "?뺤꽌??吏??";
-  return "湲고?";
+  if (value === "ACADEMIC") return "학업 고민";
+  if (value === "CAREER") return "진로 고민";
+  if (value === "EMOTIONAL") return "정서적 지원";
+  return "기타";
 };
 
-const requestStatusToFront = (value: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELED") => {
+const requestStatusToFront = (value: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELED" | "REJECTED") => {
   if (value === "IN_PROGRESS") return "in_progress";
   if (value === "COMPLETED") return "completed";
   if (value === "CANCELED") return "canceled";
+  if (value === "REJECTED") return "rejected";
   return "pending";
 };
 
@@ -39,6 +40,7 @@ const requestStatusToDb = (value: UpdateRequestStatusInput["status"] | RequestQu
   if (value === "in_progress") return "IN_PROGRESS";
   if (value === "completed") return "COMPLETED";
   if (value === "canceled") return "CANCELED";
+  if (value === "rejected") return "REJECTED";
   if (value === "pending") return "PENDING";
   return undefined;
 };
@@ -86,9 +88,9 @@ export const counselingService = {
     const notification = await counselingRepository.createNotification({
       userId: assignment.teacherProfile.userId,
       type: "INFO",
-      category: "?곷떞",
-      title: "???곷떞 ?붿껌???꾩갑?덉뒿?덈떎",
-      body: `${assignment.studentProfile.displayName} ?숈깮??${input.type} ?곷떞???붿껌?덉뒿?덈떎.`,
+      category: "상담",
+      title: "새 상담 요청이 도착했습니다",
+      body: `${assignment.studentProfile.displayName} 학생의 ${input.type} 상담이 도착했습니다.`,
       relatedType: "COUNSELING_REQUEST",
       relatedId: request.id
     });
@@ -134,7 +136,7 @@ export const counselingService = {
       requestId: counselingRequest.id,
       status: nextStatus,
       startedAt: nextStatus === "IN_PROGRESS" ? new Date() : counselingRequest.startedAt,
-      completedAt: nextStatus === "COMPLETED" ? new Date() : nextStatus === "CANCELED" ? new Date() : null
+      completedAt: nextStatus === "COMPLETED" || nextStatus === "CANCELED" || nextStatus === "REJECTED" ? new Date() : null
     });
 
     sseBroker.publishToUser(counselingRequest.studentProfile.userId, "counseling.request.updated", {
@@ -202,8 +204,8 @@ export const counselingService = {
       const notification = await counselingRepository.createNotification({
         userId: memo.studentProfile.userId,
         type: "INFO",
-        category: "?곷떞",
-        title: "?좎깮??硫붾え媛 ?꾩갑?덉뒿?덈떎",
+        category: "상담",
+        title: "선생님 메모가 도착했습니다",
         body: input.subject,
         relatedType: "COUNSELING_MEMO",
         relatedId: memo.id

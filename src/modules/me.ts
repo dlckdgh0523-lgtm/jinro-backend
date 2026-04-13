@@ -63,6 +63,8 @@ export const registerMeRoutes = (router: Router) => {
               classLabel: user.studentProfile.classLabel,
               track: dbTrackToFront(user.studentProfile.track),
               onboardingCompleted: user.studentProfile.onboardingCompleted,
+              classroomId: user.studentProfile.classroomId,
+              isConnectedToTeacher: user.studentProfile.classroomId !== null,
               goal: user.studentProfile.goalSettings[0]
                 ? {
                     university: user.studentProfile.goalSettings[0].universityNameSnapshot,
@@ -156,6 +158,49 @@ export const registerMeRoutes = (router: Router) => {
         }
       });
       sendSuccess(req, res, { updated: true });
+    })
+  );
+
+  router.patch(
+    "/me/deactivate",
+    authenticate,
+    asyncHandler(async (req: AuthenticatedRequest, res) => {
+      const user = await prisma.user.findUnique({
+        where: { id: req.auth!.sub },
+        select: { id: true, status: true }
+      });
+
+      if (!user) {
+        throw new ApiError(404, "NOT_FOUND", "User not found.");
+      }
+
+      if (user.status === "DELETED") {
+        throw new ApiError(409, "CONFLICT", "Account is already deactivated.");
+      }
+
+      await prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: user.id },
+          data: {
+            status: "DELETED",
+            deletedAt: new Date()
+          }
+        });
+
+        await tx.refreshToken.updateMany({
+          where: { userId: user.id, status: "ACTIVE" },
+          data: { status: "ROTATED" }
+        });
+      });
+
+      setAuditContext(req, {
+        action: "ME_DEACTIVATE",
+        resourceType: "user",
+        resourceId: user.id,
+        afterJson: { status: "DELETED" }
+      });
+
+      sendSuccess(req, res, { deactivated: true });
     })
   );
 };

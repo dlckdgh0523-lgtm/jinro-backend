@@ -1,4 +1,4 @@
-import type { Response, Router } from "express";
+import type { Request, Response, Router } from "express";
 import type { AppRole } from "../infra/security";
 import { env } from "../config/env";
 import { setAuditContext } from "../infra/audit";
@@ -16,6 +16,30 @@ import { authService } from "./auth.service";
 import { OAuth2Client } from "google-auth-library";
 
 const REFRESH_TOKEN_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+const FRONTEND_GOOGLE_CALLBACK_PATH = "/auth/google/callback";
+
+const normalizeOrigin = (origin: string) => origin.trim().replace(/\/+$/, "");
+
+const resolveGoogleCallbackUrl = (req: Request) => {
+  const originHeader = req.get("origin");
+  if (originHeader && env.corsOrigins.includes(originHeader)) {
+    return `${normalizeOrigin(originHeader)}${FRONTEND_GOOGLE_CALLBACK_PATH}`;
+  }
+
+  const refererHeader = req.get("referer");
+  if (refererHeader) {
+    try {
+      const refererOrigin = new URL(refererHeader).origin;
+      if (env.corsOrigins.includes(refererOrigin)) {
+        return `${normalizeOrigin(refererOrigin)}${FRONTEND_GOOGLE_CALLBACK_PATH}`;
+      }
+    } catch {
+      // Ignore invalid referer headers and fall back to configured callback URL.
+    }
+  }
+
+  return env.GOOGLE_CALLBACK_URL || "";
+};
 
 const attachRefreshTokenCookie = (res: Response, refreshToken: string) => {
   res.cookie(env.REFRESH_TOKEN_COOKIE_NAME, refreshToken, {
@@ -166,10 +190,11 @@ export const registerAuthRoutes = (router: Router) => {
     router.get(
       "/auth/google",
       asyncHandler(async (req, res) => {
+        const redirectUri = resolveGoogleCallbackUrl(req);
         const oauth2Client = new OAuth2Client({
           clientId: env.GOOGLE_CLIENT_ID!,
           clientSecret: env.GOOGLE_CLIENT_SECRET!,
-          redirectUri: env.GOOGLE_CALLBACK_URL || ""
+          redirectUri
         });
 
         const authorizeUrl = oauth2Client.generateAuthUrl({
@@ -187,9 +212,28 @@ export const registerAuthRoutes = (router: Router) => {
       "/auth/google/callback",
       validate(googleCallbackSchema, "query"),
       asyncHandler(async (req, res) => {
-        const { code } = req.query as { code: string; state: string };
+        const { code, state } = req.query as { code: string; state: string };
+        const redirectUri = resolveGoogleCallbackUrl(req);
+        const requestLogger = (
+          req as unknown as Request & {
+            log?: {
+              warn: (payload: unknown, message?: string) => void;
+            };
+          }
+        ).log;
 
-        const session = await authService.handleGoogleCallback({ code, state: "" });
+        if (env.GOOGLE_CALLBACK_URL && redirectUri && env.GOOGLE_CALLBACK_URL !== redirectUri) {
+          requestLogger?.warn(
+            {
+              requestId: req.headers["x-request-id"],
+              configuredRedirectUri: env.GOOGLE_CALLBACK_URL,
+              resolvedRedirectUri: redirectUri
+            },
+            "google callback url mismatch detected"
+          );
+        }
+
+        const session = await authService.handleGoogleCallback({ code, state, redirectUri });
 
         attachRefreshTokenCookie(res, session.refreshToken);
         setAuditContext(req, {

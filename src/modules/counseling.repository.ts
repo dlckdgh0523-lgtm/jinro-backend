@@ -99,7 +99,7 @@ export const counselingRepository = {
 
   updateRequestStatus(input: {
     requestId: string;
-    status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELED";
+    status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELED" | "REJECTED";
     startedAt?: Date | null;
     completedAt?: Date | null;
   }) {

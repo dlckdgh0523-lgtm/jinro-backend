@@ -18,7 +18,6 @@ import type {
   StudentSignupInput,
   TeacherSignupInput
 } from "./auth.validator";
-import axios from "axios";
 import { OAuth2Client } from "google-auth-library";
 import { env } from "../config/env";
 
@@ -254,35 +253,67 @@ export const authService = {
     };
   },
 
-  async handleGoogleCallback(input: GoogleCallbackInput) {
-    if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_CALLBACK_URL) {
+  async handleGoogleCallback(
+    input: GoogleCallbackInput & {
+      redirectUri?: string;
+    }
+  ) {
+    const redirectUri = input.redirectUri?.trim() || env.GOOGLE_CALLBACK_URL.trim();
+
+    if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !redirectUri) {
       throw new ApiError(500, "INTERNAL_SERVER_ERROR", "Google OAuth not configured.");
     }
 
+    const oauth2Client = new OAuth2Client({
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
+      redirectUri
+    });
+
+    let tokens;
     try {
-      const oauth2Client = new OAuth2Client({
-        clientId: env.GOOGLE_CLIENT_ID,
-        clientSecret: env.GOOGLE_CLIENT_SECRET,
-        redirectUri: env.GOOGLE_CALLBACK_URL
-      });
+      ({ tokens } = await oauth2Client.getToken({
+        code: input.code,
+        redirect_uri: redirectUri
+      }));
+    } catch (error) {
+      throw new ApiError(
+        500,
+        "INTERNAL_SERVER_ERROR",
+        "Google OAuth token exchange failed.",
+        undefined,
+        error
+      );
+    }
 
-      const { tokens } = await oauth2Client.getToken(input.code);
+    if (!tokens.id_token) {
+      throw new ApiError(401, "AUTHENTICATION_ERROR", "Failed to get ID token from Google.");
+    }
 
-      if (!tokens.id_token) {
-        throw new ApiError(401, "AUTHENTICATION_ERROR", "Failed to get ID token from Google.");
-      }
-
+    let payload;
+    try {
       const ticket = await oauth2Client.verifyIdToken({
-        idToken: tokens.id_token
+        idToken: tokens.id_token,
+        audience: env.GOOGLE_CLIENT_ID
       });
+      payload = ticket.getPayload();
+    } catch (error) {
+      throw new ApiError(
+        500,
+        "INTERNAL_SERVER_ERROR",
+        "Google ID token verification failed.",
+        undefined,
+        error
+      );
+    }
 
-      const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      throw new ApiError(401, "AUTHENTICATION_ERROR", "Invalid ID token payload.");
+    }
 
-      if (!payload || !payload.email) {
-        throw new ApiError(401, "AUTHENTICATION_ERROR", "Invalid ID token payload.");
-      }
-
-      let user = await authRepository.findGoogleUser(payload.email);
+    let user: Awaited<ReturnType<typeof authRepository.findGoogleUser>> | null = null;
+    try {
+      user = await authRepository.findGoogleUser(payload.email);
 
       if (!user) {
         const name = payload.name || payload.email.split("@")[0] || "User";
@@ -300,11 +331,31 @@ export const authService = {
           });
         }
       }
-
-      if (!user || user.status !== "ACTIVE") {
+      if (!user) {
+        throw new ApiError(500, "INTERNAL_SERVER_ERROR", "Google user provisioning failed.");
+      }
+      if (user.status !== "ACTIVE") {
         throw new ApiError(403, "FORBIDDEN", "Inactive account.");
       }
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
 
+      throw new ApiError(
+        500,
+        "INTERNAL_SERVER_ERROR",
+        "Google user provisioning failed.",
+        undefined,
+        error
+      );
+    }
+
+    if (!user) {
+      throw new ApiError(500, "INTERNAL_SERVER_ERROR", "Google user provisioning failed.");
+    }
+
+    try {
       await authRepository.updateLastLoginAt(user.id);
       return buildSessionResponse(user.id);
     } catch (error) {
@@ -312,11 +363,13 @@ export const authService = {
         throw error;
       }
 
-      if (axios.isAxiosError(error)) {
-        throw new ApiError(401, "AUTHENTICATION_ERROR", "Google OAuth request failed.");
-      }
-
-      throw new ApiError(500, "INTERNAL_SERVER_ERROR", "Google OAuth processing failed.");
+      throw new ApiError(
+        500,
+        "INTERNAL_SERVER_ERROR",
+        "Google session creation failed.",
+        undefined,
+        error
+      );
     }
   }
 };
