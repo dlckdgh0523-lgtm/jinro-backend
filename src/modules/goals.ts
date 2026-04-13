@@ -39,4 +39,27 @@ export const registerGoalRoutes = (router: Router) => {
       sendSuccess(req, res, await goalService.listOptions());
     })
   );
+
+  router.get(
+    "/goals/universities",
+    authenticate,
+    asyncHandler(async (req: AuthenticatedRequest, res) => {
+      const region = req.query.region ? String(req.query.region) : undefined;
+      const universities = await goalService.listUniversities(region);
+      sendSuccess(req, res, universities);
+    })
+  );
+
+  router.get(
+    "/goals/departments",
+    authenticate,
+    asyncHandler(async (req: AuthenticatedRequest, res) => {
+      const universityId = req.query.universityId ? String(req.query.universityId) : undefined;
+      if (!universityId) {
+        return sendSuccess(req, res, [], {}, 400);
+      }
+      const departments = await goalService.listDepartmentsByUniversity(universityId);
+      sendSuccess(req, res, departments);
+    })
+  );
 };

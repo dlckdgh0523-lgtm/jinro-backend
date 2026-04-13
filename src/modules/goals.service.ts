@@ -138,5 +138,13 @@ export const goalService = {
       universities: universities.map((item) => item.name),
       departmentsByField
     };
+  },
+
+  async listUniversities(region?: string) {
+    return goalRepository.findUniversities({ region });
+  },
+
+  async listDepartmentsByUniversity(universityId: string) {
+    return goalRepository.findDepartmentsByUniversity(universityId);
   }
 };

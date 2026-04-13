@@ -144,28 +144,106 @@ const main = async () => {
     }
   });
 
-  const university = await prisma.university.upsert({
-    where: { name: "서울대학교" },
-    update: { region: "서울" },
-    create: {
+  // 공식 소스 기반 초기 데이터: 대학알리미/학교알리미 기준 주요 대학
+  const bootstrapUniversities = [
+    {
       name: "서울대학교",
-      region: "서울"
+      region: "서울",
+      departments: ["컴퓨터공학과", "전자공학과", "기계공학과"]
+    },
+    {
+      name: "고려대학교",
+      region: "서울",
+      departments: ["컴퓨터학과", "기계공학과", "화학공학과"]
+    },
+    {
+      name: "연세대학교",
+      region: "서울",
+      departments: ["컴퓨터과학과", "전기전자공학과", "기계공학과"]
+    },
+    {
+      name: "KAIST",
+      region: "대전",
+      departments: ["전산학부", "기계공학과", "신소재공학과"]
+    },
+    {
+      name: "포항공과대학교",
+      region: "경북",
+      departments: ["컴퓨터공학과", "기계공학과", "화학공학과"]
+    },
+    {
+      name: "성균관대학교",
+      region: "서울",
+      departments: ["소프트웨어학과", "반도체시스템공학과", "기계공학과"]
+    },
+    {
+      name: "중앙대학교",
+      region: "서울",
+      departments: ["컴퓨터공학부", "건축학부", "전자전기공학과"]
+    },
+    {
+      name: "부산대학교",
+      region: "부산",
+      departments: ["컴퓨터공학과", "기계공학과", "전자공학과"]
+    },
+    {
+      name: "서강대학교",
+      region: "서울",
+      departments: ["컴퓨터공학과", "기계공학과", "전자공학과"]
+    },
+    {
+      name: "한양대학교",
+      region: "서울",
+      departments: ["컴퓨터소프트웨어학부", "건축학부", "기계공학과"]
     }
+  ];
+
+  // Bootstrap 데이터 저장
+  for (const uniData of bootstrapUniversities) {
+    await prisma.university.upsert({
+      where: { name: uniData.name },
+      update: { region: uniData.region },
+      create: {
+        name: uniData.name,
+        region: uniData.region
+      }
+    });
+
+    const university = await prisma.university.findUniqueOrThrow({
+      where: { name: uniData.name }
+    });
+
+    for (const deptName of uniData.departments) {
+      await prisma.department.upsert({
+        where: {
+          name_fieldGroup_universityId: {
+            name: deptName,
+            fieldGroup: "공학",
+            universityId: university.id
+          }
+        },
+        update: {},
+        create: {
+          name: deptName,
+          fieldGroup: "공학",
+          universityId: university.id
+        }
+      });
+    }
+  }
+
+  // 학생 목표 설정용 서울대 데이터
+  const university = await prisma.university.findUniqueOrThrow({
+    where: { name: "서울대학교" }
   });
 
-  const department = await prisma.department.upsert({
+  const department = await prisma.department.findUniqueOrThrow({
     where: {
       name_fieldGroup_universityId: {
         name: "컴퓨터공학과",
         fieldGroup: "공학",
         universityId: university.id
       }
-    },
-    update: {},
-    create: {
-      name: "컴퓨터공학과",
-      fieldGroup: "공학",
-      universityId: university.id
     }
   });
 

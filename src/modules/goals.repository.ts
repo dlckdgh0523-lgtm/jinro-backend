@@ -127,5 +127,24 @@ export const goalRepository = {
       where: { universityId: null },
       orderBy: [{ fieldGroup: "asc" }, { name: "asc" }]
     });
+  },
+
+  findUniversities(filter: { region?: string }) {
+    return prisma.university.findMany({
+      where: filter.region ? { region: filter.region } : {},
+      include: {
+        departments: {
+          select: { id: true, name: true, fieldGroup: true }
+        }
+      },
+      orderBy: { name: "asc" }
+    });
+  },
+
+  findDepartmentsByUniversity(universityId: string) {
+    return prisma.department.findMany({
+      where: { universityId },
+      orderBy: [{ fieldGroup: "asc" }, { name: "asc" }]
+    });
   }
 };
