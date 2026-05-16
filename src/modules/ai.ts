@@ -129,7 +129,7 @@ class OpenAiLlmProvider implements LlmProvider {
     } catch (error) {
       const errorMsg =
         error instanceof Error ? error.message : "Unknown error";
-      throw new Error(`OpenAI provider failed: ${errorMsg}`);
+      throw new Error(`OpenAI provider failed: ${errorMsg}`, { cause: error });
     } finally {
       clearTimeout(timeoutId);
     }

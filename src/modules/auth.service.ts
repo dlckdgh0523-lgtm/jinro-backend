@@ -254,9 +254,7 @@ export const authService = {
   },
 
   async handleGoogleCallback(
-    input: GoogleCallbackInput & {
-      redirectUri?: string;
-    }
+    input: GoogleCallbackInput & { redirectUri?: string }
   ) {
     const redirectUri = input.redirectUri?.trim() || env.GOOGLE_CALLBACK_URL.trim();
 
@@ -311,7 +309,7 @@ export const authService = {
       throw new ApiError(401, "AUTHENTICATION_ERROR", "Invalid ID token payload.");
     }
 
-    let user: Awaited<ReturnType<typeof authRepository.findGoogleUser>> | null = null;
+    let user: Awaited<ReturnType<typeof authRepository.findGoogleUser>> | null;
     try {
       user = await authRepository.findGoogleUser(payload.email);
 
@@ -331,12 +329,6 @@ export const authService = {
           });
         }
       }
-      if (!user) {
-        throw new ApiError(500, "INTERNAL_SERVER_ERROR", "Google user provisioning failed.");
-      }
-      if (user.status !== "ACTIVE") {
-        throw new ApiError(403, "FORBIDDEN", "Inactive account.");
-      }
     } catch (error) {
       if (error instanceof ApiError) {
         throw error;
@@ -353,6 +345,9 @@ export const authService = {
 
     if (!user) {
       throw new ApiError(500, "INTERNAL_SERVER_ERROR", "Google user provisioning failed.");
+    }
+    if (user.status !== "ACTIVE") {
+      throw new ApiError(403, "FORBIDDEN", "Inactive account.");
     }
 
     try {

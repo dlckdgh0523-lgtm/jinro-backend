@@ -21,3 +21,6 @@ process.env.AI_EMBEDDING_MODEL ??= "stub-embedding-model";
 process.env.AI_REQUEST_TIMEOUT_MS ??= "30000";
 process.env.AWS_REGION ??= "ap-northeast-2";
 process.env.AWS_SECRETS_PREFIX ??= "/jinro-nachimban/backend";
+process.env.GOOGLE_CLIENT_ID ??= "test-google-client-id";
+process.env.GOOGLE_CLIENT_SECRET ??= "test-google-client-secret";
+process.env.GOOGLE_CALLBACK_URL ??= "http://localhost:5173/auth/google/callback";

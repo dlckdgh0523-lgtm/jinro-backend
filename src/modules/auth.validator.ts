@@ -7,7 +7,7 @@ export const loginSchema = z.object({
 
 export const googleCallbackSchema = z.object({
   code: z.string().min(1),
-  state: z.string().min(1)
+  redirectUri: z.string().url().optional()
 });
 
 export const studentSignupSchema = z

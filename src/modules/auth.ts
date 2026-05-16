@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import type { Request, Response, Router } from "express";
 import type { AppRole } from "../infra/security";
 import { env } from "../config/env";
@@ -197,43 +198,29 @@ export const registerAuthRoutes = (router: Router) => {
           redirectUri
         });
 
+        const state = crypto.randomUUID();
+
         const authorizeUrl = oauth2Client.generateAuthUrl({
           access_type: "offline",
-          scope: ["openid", "email", "profile"]
+          scope: ["openid", "email", "profile"],
+          state
         });
 
         sendSuccess(req, res, {
-          authUrl: authorizeUrl
+          authUrl: authorizeUrl,
+          state
         });
       })
     );
 
-    router.get(
+    router.post(
       "/auth/google/callback",
-      validate(googleCallbackSchema, "query"),
+      validate(googleCallbackSchema),
       asyncHandler(async (req, res) => {
-        const { code, state } = req.query as { code: string; state: string };
-        const redirectUri = resolveGoogleCallbackUrl(req);
-        const requestLogger = (
-          req as unknown as Request & {
-            log?: {
-              warn: (payload: unknown, message?: string) => void;
-            };
-          }
-        ).log;
+        const { code, redirectUri: bodyRedirectUri } = req.body as { code: string; redirectUri?: string };
+        const redirectUri = bodyRedirectUri?.trim() || resolveGoogleCallbackUrl(req);
 
-        if (env.GOOGLE_CALLBACK_URL && redirectUri && env.GOOGLE_CALLBACK_URL !== redirectUri) {
-          requestLogger?.warn(
-            {
-              requestId: req.headers["x-request-id"],
-              configuredRedirectUri: env.GOOGLE_CALLBACK_URL,
-              resolvedRedirectUri: redirectUri
-            },
-            "google callback url mismatch detected"
-          );
-        }
-
-        const session = await authService.handleGoogleCallback({ code, state, redirectUri });
+        const session = await authService.handleGoogleCallback({ code, redirectUri });
 
         attachRefreshTokenCookie(res, session.refreshToken);
         setAuditContext(req, {

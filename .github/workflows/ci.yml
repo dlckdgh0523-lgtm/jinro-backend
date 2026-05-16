@@ -2,11 +2,9 @@ name: backend-ci
 
 on:
   push:
-    paths:
-      - "backend/**"
+    branches: [main]
   pull_request:
-    paths:
-      - "backend/**"
+    branches: [main]
 
 jobs:
   verify:
@@ -26,10 +24,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
-
-    defaults:
-      run:
-        working-directory: backend
 
     env:
       PORT: 4000
@@ -63,7 +57,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: backend/package.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
