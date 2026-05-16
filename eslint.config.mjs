@@ -35,5 +35,11 @@ export default tseslint.config(
       ],
       "no-console": "off"
     }
+  },
+  {
+    files: ["tests/**/*.ts"],
+    rules: {
+      "@typescript-eslint/consistent-type-imports": "off"
+    }
   }
 );
