@@ -52,6 +52,32 @@ Before committing, all must pass:
 - `src/infra/` — security (JWT/bcrypt), Prisma client, audit, realtime (SSE)
 - `src/common/` — HTTP utilities, domain helpers
 
+## Modules
+
+| Module | Purpose |
+|--------|---------|
+| auth | Login, signup, Google OAuth, refresh, logout |
+| me | User profile CRUD |
+| subscription | Plans, trials, payment webhooks |
+| career-counseling | AI conversational career guidance |
+| admin | Super admin dashboard APIs |
+| grades | Exam records, semester grades, mock exams |
+| counseling | Teacher-student counseling requests/memos |
+| goals | University/department goal setting |
+| study-plans | Weekly study plans and tasks |
+| notifications | Notification CRUD + SSE streaming |
+| dashboard | Teacher/student dashboard aggregation |
+| admissions | University admission record queries |
+| ai | Generic AI chat (OpenAI/stub) |
+| inquiry | User inquiries/feedback |
+
+## Roles
+
+- `STUDENT` — student features, career counseling
+- `TEACHER` — classroom management, student reports
+- `ADMIN` — legacy admin (limited)
+- `SUPER_ADMIN` — full system administration
+
 ## Google OAuth Flow
 
 1. Frontend calls `GET /v1/auth/google` → receives `{ authUrl, state }`
@@ -69,11 +95,17 @@ Before committing, all must pass:
 
 ## Deployment
 
-Target: EC2 with Docker. See `Dockerfile` and `docker-compose.dev.yml`.
-Production requires:
-- PostgreSQL accessible from EC2
-- All env vars set (see `.env.example`)
-- `prisma migrate deploy` before or during startup (handled in `server.ts` for production)
+Target: EC2 with Docker. See `Dockerfile`, `docker-compose.yml` (production), `docker-compose.dev.yml` (development).
+
+```bash
+# Production
+docker compose build
+docker compose up -d
+docker compose exec backend npx prisma migrate deploy
+curl http://localhost:4000/health
+```
+
+Full guide: `docs/ec2-deploy-runbook.md`
 
 ## Testing
 
