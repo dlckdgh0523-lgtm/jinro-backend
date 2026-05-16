@@ -1,4 +1,5 @@
 import { ApiError } from "../common/http";
+import { prisma } from "../infra/prisma";
 import { subscriptionRepository } from "./subscription.repository";
 import type { CreateSubscriptionInput, PaymentWebhookInput } from "./subscription.validator";
 
@@ -17,22 +18,44 @@ export const subscriptionService = {
   },
 
   async createSubscription(userId: string, input: CreateSubscriptionInput) {
-    const existing = await subscriptionRepository.findActiveByUserId(userId);
-    if (existing) {
-      throw new ApiError(409, "CONFLICT", "User already has an active subscription.");
-    }
+    return prisma.$transaction(async (tx) => {
+      const existing = await tx.subscription.findFirst({
+        where: { userId, status: { in: ["TRIALING", "ACTIVE"] } }
+      });
+      if (existing) {
+        throw new ApiError(409, "CONFLICT", "User already has an active subscription.");
+      }
 
-    const config = PLAN_CONFIG[input.planType];
-    const previousSub = await subscriptionRepository.hasUsedTrial(userId, input.planType);
-    const isTrial = !previousSub;
+      const config = PLAN_CONFIG[input.planType];
+      const previousSub = await tx.subscription.findFirst({
+        where: { userId, planType: input.planType },
+        select: { id: true }
+      });
+      const isTrial = !previousSub;
 
-    return subscriptionRepository.create({
-      userId,
-      planType: input.planType,
-      priceKrw: config.priceKrw,
-      maxStudents: config.maxStudents,
-      isTrial
-    });
+      const TRIAL_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
+      const now = new Date();
+      const trialEndsAt = isTrial ? new Date(now.getTime() + TRIAL_DURATION_MS) : null;
+
+      return tx.subscription.create({
+        data: {
+          userId,
+          planType: input.planType,
+          status: isTrial ? "TRIALING" : "ACTIVE",
+          priceKrw: config.priceKrw,
+          maxStudents: config.maxStudents,
+          trialEndsAt,
+          currentPeriodStart: now,
+          currentPeriodEnd: trialEndsAt ?? new Date(now.getTime() + TRIAL_DURATION_MS),
+          events: {
+            create: {
+              eventType: isTrial ? "TRIAL_STARTED" : "SUBSCRIPTION_CREATED",
+              toStatus: isTrial ? "TRIALING" : "ACTIVE"
+            }
+          }
+        }
+      });
+    }, { isolationLevel: "Serializable" });
   },
 
   async cancelSubscription(userId: string, subscriptionId: string, reason?: string) {

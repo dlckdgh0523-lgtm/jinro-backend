@@ -118,6 +118,22 @@ export const careerCounselingService = {
       return session.report;
     }
 
+    const signals = session.signals ?? [];
+    const messages = session.messages ?? [];
+    const MIN_SIGNALS = 3;
+    const MIN_MESSAGES = 4;
+    const MIN_CATEGORIES = 2;
+
+    const uniqueCategories = new Set(signals.map((s: any) => s.category));
+    if (signals.length < MIN_SIGNALS || messages.length < MIN_MESSAGES || uniqueCategories.size < MIN_CATEGORIES) {
+      throw new ApiError(409, "CONFLICT",
+        `보고서 생성을 위한 충분한 정보가 수집되지 않았습니다. ` +
+        `최소 ${MIN_SIGNALS}개의 신호(현재 ${signals.length}개), ` +
+        `${MIN_MESSAGES}개의 대화(현재 ${messages.length}개), ` +
+        `${MIN_CATEGORIES}개 이상의 카테고리(현재 ${uniqueCategories.size}개)가 필요합니다.`
+      );
+    }
+
     const report = await this.buildReport(session);
 
     const created = await careerCounselingRepository.createReport(sessionId, report);

@@ -14,12 +14,12 @@ const paginationQuery = z.object({
 
 const userStatusSchema = z.object({
   status: z.enum(["ACTIVE", "DISABLED", "DELETED"]),
-  reason: z.string().optional()
+  reason: z.string().min(1, "Reason is required for admin mutations.")
 });
 
 const subscriptionStatusSchema = z.object({
   status: z.enum(["ACTIVE", "CANCELED", "EXPIRED", "PAYMENT_FAILED"]),
-  reason: z.string().optional()
+  reason: z.string().min(1, "Reason is required for admin mutations.")
 });
 
 export const registerAdminRoutes = (router: Router) => {

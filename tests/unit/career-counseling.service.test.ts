@@ -256,13 +256,68 @@ describe("careerCounselingService", () => {
       expect(careerCounselingRepository.createReport).not.toHaveBeenCalled();
     });
 
-    it("generates new report for READY_FOR_REPORT session", async () => {
+    it("throws CONFLICT if insufficient signals for report", async () => {
       const session = makeCounselingSession({
         studentProfileId: "profile-1",
         status: "READY_FOR_REPORT",
         confidenceScore: 0.85,
-        messages: [{ role: "AI", content: "question" }, { role: "STUDENT", content: "answer" }],
-        signals: [makeSignal({ category: "interests" }), makeSignal({ category: "strengths" })],
+        messages: [{ role: "AI", content: "q1" }, { role: "STUDENT", content: "a1" }],
+        signals: [makeSignal({ category: "interests" })],
+        hypotheses: []
+      });
+      vi.mocked(careerCounselingRepository.findSessionById).mockResolvedValue(session as any);
+
+      await expect(
+        careerCounselingService.generateReport("user-1", session.id, "profile-1")
+      ).rejects.toMatchObject({ statusCode: 409 });
+    });
+
+    it("throws CONFLICT if insufficient messages for report", async () => {
+      const session = makeCounselingSession({
+        studentProfileId: "profile-1",
+        status: "READY_FOR_REPORT",
+        confidenceScore: 0.85,
+        messages: [{ role: "AI", content: "q1" }],
+        signals: [makeSignal({ category: "interests" }), makeSignal({ category: "strengths" }), makeSignal({ category: "values" })],
+        hypotheses: []
+      });
+      vi.mocked(careerCounselingRepository.findSessionById).mockResolvedValue(session as any);
+
+      await expect(
+        careerCounselingService.generateReport("user-1", session.id, "profile-1")
+      ).rejects.toMatchObject({ statusCode: 409 });
+    });
+
+    it("throws CONFLICT if insufficient category diversity", async () => {
+      const session = makeCounselingSession({
+        studentProfileId: "profile-1",
+        status: "READY_FOR_REPORT",
+        confidenceScore: 0.85,
+        messages: [{ role: "AI", content: "q" }, { role: "STUDENT", content: "a" }, { role: "AI", content: "q2" }, { role: "STUDENT", content: "a2" }],
+        signals: [makeSignal({ category: "interests" }), makeSignal({ category: "interests" }), makeSignal({ category: "interests" })],
+        hypotheses: []
+      });
+      vi.mocked(careerCounselingRepository.findSessionById).mockResolvedValue(session as any);
+
+      await expect(
+        careerCounselingService.generateReport("user-1", session.id, "profile-1")
+      ).rejects.toMatchObject({ statusCode: 409 });
+    });
+
+    it("generates report when minimum evidence requirements are met", async () => {
+      const session = makeCounselingSession({
+        studentProfileId: "profile-1",
+        status: "READY_FOR_REPORT",
+        confidenceScore: 0.85,
+        messages: [
+          { role: "AI", content: "q1" }, { role: "STUDENT", content: "a1" },
+          { role: "AI", content: "q2" }, { role: "STUDENT", content: "a2" }
+        ],
+        signals: [
+          makeSignal({ category: "interests" }),
+          makeSignal({ category: "strengths" }),
+          makeSignal({ category: "values" })
+        ],
         hypotheses: [{ careerName: "개발자", reason: "코딩 관심", confidenceScore: 0.7, relatedMajors: ["컴퓨터공학"] }]
       });
       vi.mocked(careerCounselingRepository.findSessionById).mockResolvedValue(session as any);
@@ -277,25 +332,6 @@ describe("careerCounselingService", () => {
       expect(careerCounselingRepository.updateSessionStatus).toHaveBeenCalledWith(
         session.id, "COMPLETED", 0.85
       );
-    });
-
-    it("generates report for ACTIVE session", async () => {
-      const session = makeCounselingSession({
-        studentProfileId: "profile-1",
-        status: "ACTIVE",
-        confidenceScore: 0.6,
-        messages: [],
-        signals: [],
-        hypotheses: []
-      });
-      vi.mocked(careerCounselingRepository.findSessionById).mockResolvedValue(session as any);
-      vi.mocked(careerCounselingRepository.createReport).mockResolvedValue({ id: "r" } as any);
-      vi.mocked(careerCounselingRepository.updateSessionStatus).mockResolvedValue({} as any);
-      vi.mocked(careerCounselingRepository.logAiUsage).mockResolvedValue({} as any);
-
-      await careerCounselingService.generateReport("user-1", session.id, "profile-1");
-
-      expect(careerCounselingRepository.createReport).toHaveBeenCalled();
     });
   });
 

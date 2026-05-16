@@ -108,17 +108,14 @@ describe("admin integration", () => {
       expect(res.status).toBe(400);
     });
 
-    it("accepts valid status ACTIVE", async () => {
+    it("rejects status change without reason", async () => {
       const app = buildApp();
       const token = makeAccessToken("admin-1", "SUPER_ADMIN");
       const res = await request(app)
         .patch("/v1/admin/users/user-1/status")
         .set("Authorization", `Bearer ${token}`)
         .send({ status: "ACTIVE" });
-      // Passes validation and auth
-      expect(res.status).not.toBe(400);
-      expect(res.status).not.toBe(401);
-      expect(res.status).not.toBe(403);
+      expect(res.status).toBe(400);
     });
 
     it("accepts valid status DISABLED with reason", async () => {
@@ -160,6 +157,16 @@ describe("admin integration", () => {
         .patch("/v1/admin/subscriptions/sub-1/status")
         .set("Authorization", `Bearer ${token}`)
         .send({ status: "TRIALING" }); // Not in allowed enum
+      expect(res.status).toBe(400);
+    });
+
+    it("rejects subscription status change without reason", async () => {
+      const app = buildApp();
+      const token = makeAccessToken("admin-1", "SUPER_ADMIN");
+      const res = await request(app)
+        .patch("/v1/admin/subscriptions/sub-1/status")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ status: "CANCELED" });
       expect(res.status).toBe(400);
     });
 

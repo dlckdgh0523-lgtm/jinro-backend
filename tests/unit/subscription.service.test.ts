@@ -16,6 +16,19 @@ vi.mock("../../src/modules/subscription.repository", () => ({
   }
 }));
 
+const mockTx = {
+  subscription: {
+    findFirst: vi.fn(),
+    create: vi.fn()
+  }
+};
+
+vi.mock("../../src/infra/prisma", () => ({
+  prisma: {
+    $transaction: vi.fn((fn: any) => fn(mockTx))
+  }
+}));
+
 let subscriptionService: typeof import("../../src/modules/subscription.service").subscriptionService;
 let subscriptionRepository: typeof import("../../src/modules/subscription.repository").subscriptionRepository;
 
@@ -34,7 +47,7 @@ describe("subscriptionService", () => {
   describe("createSubscription", () => {
     it("throws CONFLICT if user already has active subscription", async () => {
       const existing = makeSubscription();
-      vi.mocked(subscriptionRepository.findActiveByUserId).mockResolvedValue(existing as any);
+      vi.mocked(mockTx.subscription.findFirst).mockResolvedValueOnce(existing as any);
 
       await expect(
         subscriptionService.createSubscription("user-1", { planType: "STUDENT_PERSONAL" })
@@ -42,45 +55,71 @@ describe("subscriptionService", () => {
     });
 
     it("creates trial subscription for first-time user", async () => {
-      vi.mocked(subscriptionRepository.findActiveByUserId).mockResolvedValue(null);
-      vi.mocked(subscriptionRepository.hasUsedTrial).mockResolvedValue(null);
+      vi.mocked(mockTx.subscription.findFirst)
+        .mockResolvedValueOnce(null)  // no active sub
+        .mockResolvedValueOnce(null); // no previous trial
       const created = makeSubscription({ status: "TRIALING" });
-      vi.mocked(subscriptionRepository.create).mockResolvedValue(created as any);
+      vi.mocked(mockTx.subscription.create).mockResolvedValue(created as any);
 
       const result = await subscriptionService.createSubscription("user-1", { planType: "STUDENT_PERSONAL" });
 
-      expect(subscriptionRepository.create).toHaveBeenCalledWith({
-        userId: "user-1",
-        planType: "STUDENT_PERSONAL",
-        priceKrw: 3000,
-        maxStudents: 0,
-        isTrial: true
-      });
+      expect(mockTx.subscription.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            userId: "user-1",
+            planType: "STUDENT_PERSONAL",
+            status: "TRIALING",
+            priceKrw: 3000,
+            maxStudents: 0
+          })
+        })
+      );
       expect(result).toEqual(created);
     });
 
     it("creates paid subscription if user already used trial", async () => {
-      vi.mocked(subscriptionRepository.findActiveByUserId).mockResolvedValue(null);
-      vi.mocked(subscriptionRepository.hasUsedTrial).mockResolvedValue(makeSubscription({ status: "EXPIRED" }) as any);
+      vi.mocked(mockTx.subscription.findFirst)
+        .mockResolvedValueOnce(null)  // no active sub
+        .mockResolvedValueOnce({ id: "prev-sub" }); // has previous trial
       const created = makeSubscription({ status: "ACTIVE" });
-      vi.mocked(subscriptionRepository.create).mockResolvedValue(created as any);
+      vi.mocked(mockTx.subscription.create).mockResolvedValue(created as any);
 
       await subscriptionService.createSubscription("user-1", { planType: "STUDENT_PERSONAL" });
 
-      expect(subscriptionRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ isTrial: false })
+      expect(mockTx.subscription.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "ACTIVE" })
+        })
       );
     });
 
     it("uses correct pricing for TEACHER_CLASSROOM plan", async () => {
-      vi.mocked(subscriptionRepository.findActiveByUserId).mockResolvedValue(null);
-      vi.mocked(subscriptionRepository.hasUsedTrial).mockResolvedValue(null);
-      vi.mocked(subscriptionRepository.create).mockResolvedValue(makeSubscription() as any);
+      vi.mocked(mockTx.subscription.findFirst)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
+      vi.mocked(mockTx.subscription.create).mockResolvedValue(makeSubscription() as any);
 
       await subscriptionService.createSubscription("user-1", { planType: "TEACHER_CLASSROOM" });
 
-      expect(subscriptionRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ priceKrw: 30000, maxStudents: 30 })
+      expect(mockTx.subscription.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ priceKrw: 30000, maxStudents: 30 })
+        })
+      );
+    });
+
+    it("uses Serializable isolation level for concurrency safety", async () => {
+      const { prisma } = await import("../../src/infra/prisma");
+      vi.mocked(mockTx.subscription.findFirst)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
+      vi.mocked(mockTx.subscription.create).mockResolvedValue(makeSubscription() as any);
+
+      await subscriptionService.createSubscription("user-1", { planType: "STUDENT_PERSONAL" });
+
+      expect(prisma.$transaction).toHaveBeenCalledWith(
+        expect.any(Function),
+        { isolationLevel: "Serializable" }
       );
     });
   });
