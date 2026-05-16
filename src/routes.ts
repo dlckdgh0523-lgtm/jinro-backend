@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { registerAdmissionRoutes } from "./modules/admissions";
+import { registerAdminRoutes } from "./modules/admin";
 import { registerAiRoutes } from "./modules/ai";
 import { registerAuthRoutes } from "./modules/auth";
+import { registerCareerCounselingRoutes } from "./modules/career-counseling";
 import { registerCounselingRoutes } from "./modules/counseling";
 import { registerInquiryRoutes } from "./modules/inquiry";
 import { registerDashboardRoutes } from "./modules/dashboard";
@@ -11,6 +13,7 @@ import { registerHealthRoutes } from "./modules/health";
 import { registerMeRoutes } from "./modules/me";
 import { registerNotificationRoutes } from "./modules/notifications";
 import { registerStudyPlanRoutes } from "./modules/study-plans";
+import { registerSubscriptionRoutes } from "./modules/subscription";
 
 export const buildRoutes = () => {
   const router = Router();
@@ -35,6 +38,9 @@ export const buildRoutes = () => {
   registerAdmissionRoutes(v1Router);
   registerAiRoutes(v1Router);
   registerInquiryRoutes(v1Router);
+  registerSubscriptionRoutes(v1Router);
+  registerCareerCounselingRoutes(v1Router);
+  registerAdminRoutes(v1Router);
 
   return router;
 };

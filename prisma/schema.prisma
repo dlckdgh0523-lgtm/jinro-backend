@@ -13,6 +13,7 @@ enum UserRole {
   STUDENT
   TEACHER
   ADMIN
+  SUPER_ADMIN
 
   @@schema("public")
 }
@@ -252,6 +253,9 @@ model User {
   inquiries        Inquiry[]
   ragIngestionJobs RagIngestionJob[] @relation("RagJobInitiator")
   auditLogs        AuditLog[]       @relation("AuditActor")
+  subscriptions    Subscription[]
+  payments         Payment[]
+  aiUsageLogs      AiUsageLog[]
 
   @@index([role, status])
   @@schema("public")
@@ -287,6 +291,7 @@ model StudentProfile {
   counselingMemos        CounselingMemo[]           @relation("MemoStudent")
   goalSettings           GoalSetting[]
   aiConversations        AiConversation[]           @relation("StudentConversations")
+  careerCounselingSessions CareerCounselingSession[]
 
   @@index([schoolName, gradeLevel, classLabel])
   @@schema("public")
@@ -484,9 +489,10 @@ model Notification {
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
   user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveryLogs  NotificationDeliveryLog[]
 
   @@index([userId, status, createdAt(sort: Desc)])
-  @@index([userId, dedupeKey])
+  @@unique([userId, dedupeKey])
   @@schema("public")
 }
 
@@ -758,4 +764,233 @@ model AuditLog {
   @@index([resourceType, resourceId, createdAt(sort: Desc)])
   @@index([actorUserId, createdAt(sort: Desc)])
   @@schema("audit")
+}
+
+// ─── Subscription & Payment ───────────────────────────────────────────────────
+
+enum PlanType {
+  STUDENT_PERSONAL
+  TEACHER_CLASSROOM
+
+  @@schema("public")
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+  PAYMENT_FAILED
+
+  @@schema("public")
+}
+
+enum PaymentEventStatus {
+  REQUESTED
+  APPROVED
+  FAILED
+  CANCELED
+  REFUNDED
+
+  @@schema("public")
+}
+
+model Subscription {
+  id              String             @id @default(uuid())
+  userId          String
+  planType        PlanType
+  status          SubscriptionStatus @default(TRIALING)
+  trialEndsAt     DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  canceledAt      DateTime?
+  maxStudents     Int                @default(0)
+  priceKrw        Int
+  pgCustomerId    String?
+  pgSubscriptionId String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events          SubscriptionEvent[]
+  payments        Payment[]
+
+  @@index([userId, status])
+  @@index([status, currentPeriodEnd])
+  @@schema("public")
+}
+
+model SubscriptionEvent {
+  id              String   @id @default(uuid())
+  subscriptionId  String
+  eventType       String
+  fromStatus      String?
+  toStatus        String
+  reason          String?
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  subscription    Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, createdAt(sort: Desc)])
+  @@schema("public")
+}
+
+model Payment {
+  id              String             @id @default(uuid())
+  subscriptionId  String
+  userId          String
+  amountKrw       Int
+  status          PaymentEventStatus @default(REQUESTED)
+  pgPaymentId     String?            @unique
+  pgProvider      String?
+  failureReason   String?
+  paidAt          DateTime?
+  refundedAt      DateTime?
+  idempotencyKey  String             @unique
+  metadata        Json?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  subscription    Subscription       @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([subscriptionId, status])
+  @@schema("public")
+}
+
+// ─── AI Career Counseling ─────────────────────────────────────────────────────
+
+enum CounselingSessionStatus {
+  ACTIVE
+  READY_FOR_REPORT
+  COMPLETED
+  ARCHIVED
+
+  @@schema("public")
+}
+
+enum CounselingMessageRole {
+  STUDENT
+  AI
+  SYSTEM_NOTE
+
+  @@schema("public")
+}
+
+model CareerCounselingSession {
+  id               String                   @id @default(uuid())
+  studentProfileId String
+  status           CounselingSessionStatus  @default(ACTIVE)
+  currentStep      Int                      @default(0)
+  confidenceScore  Float                    @default(0)
+  title            String?
+  completedAt      DateTime?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  studentProfile   StudentProfile           @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  messages         CareerCounselingMessage[]
+  signals          CareerSignal[]
+  hypotheses       CareerHypothesis[]
+  report           CareerReport?
+
+  @@index([studentProfileId, status, updatedAt(sort: Desc)])
+  @@schema("public")
+}
+
+model CareerCounselingMessage {
+  id               String                  @id @default(uuid())
+  sessionId        String
+  role             CounselingMessageRole
+  content          String
+  extractedSignals Json?
+  tokenUsage       Json?
+  createdAt        DateTime                @default(now())
+  session          CareerCounselingSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@schema("public")
+}
+
+model CareerSignal {
+  id          String                  @id @default(uuid())
+  sessionId   String
+  category    String
+  value       String
+  evidence    String?
+  messageRef  String?
+  confidence  Float                   @default(0.5)
+  createdAt   DateTime                @default(now())
+  session     CareerCounselingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, category])
+  @@schema("public")
+}
+
+model CareerHypothesis {
+  id                 String                  @id @default(uuid())
+  sessionId          String
+  careerName         String
+  relatedMajors      String[]                @default([])
+  reason             String
+  supportingEvidence String[]                @default([])
+  missingInformation String[]                @default([])
+  confidenceScore    Float                   @default(0)
+  active             Boolean                 @default(true)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  session            CareerCounselingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, active])
+  @@schema("public")
+}
+
+model CareerReport {
+  id                 String                  @id @default(uuid())
+  sessionId          String                  @unique
+  summary            String
+  recommendedCareers Json
+  recommendedMajors  Json
+  strengths          String[]                @default([])
+  risks              String[]                @default([])
+  studyPlan          Json?
+  nextQuestions       String[]                @default([])
+  evidence           Json
+  disclaimer         String
+  createdAt          DateTime                @default(now())
+  session            CareerCounselingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+}
+
+model AiUsageLog {
+  id          String   @id @default(uuid())
+  userId      String
+  sessionId   String?
+  actionType  String
+  tokenCount  Int      @default(0)
+  modelName   String?
+  costKrw     Float    @default(0)
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([actionType, createdAt(sort: Desc)])
+  @@schema("public")
+}
+
+// ─── Notification Delivery ────────────────────────────────────────────────────
+
+model NotificationDeliveryLog {
+  id               String   @id @default(uuid())
+  notificationId   String
+  channel          String
+  deliveredAt      DateTime?
+  failedAt         DateTime?
+  failureReason    String?
+  retryCount       Int      @default(0)
+  createdAt        DateTime @default(now())
+  notification     Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([notificationId])
+  @@schema("public")
 }

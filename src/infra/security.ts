@@ -5,7 +5,7 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { ApiError } from "../common/http";
 import { env } from "../config/env";
 
-export type AppRole = "STUDENT" | "TEACHER" | "ADMIN";
+export type AppRole = "STUDENT" | "TEACHER" | "ADMIN" | "SUPER_ADMIN";
 export type TokenKind = "access" | "refresh" | "stream";
 
 export interface AuthClaims {

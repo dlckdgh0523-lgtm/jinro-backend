@@ -1,6 +1,6 @@
 # Memory — jinro-nachimban-backend
 
-## Last Updated: 2026-05-17
+## Last Updated: 2026-05-17 (Phase 2 complete)
 
 ## Current State Summary
 
@@ -40,6 +40,30 @@
 #### CI Workflow
 - `.github/workflows/ci.yml` referenced `backend/` subdirectory (wrong) → fixed to root
 - Path triggers changed to branch-based (push/PR to main)
+
+### Phase 2: New Features Added (2026-05-17)
+
+#### Subscription/Payment System
+- Prisma models: Subscription, SubscriptionEvent, Payment
+- Plans: STUDENT_PERSONAL (3,000 KRW/mo), TEACHER_CLASSROOM (30,000 KRW/mo)
+- First month free trial, idempotent webhooks
+- Routes: /v1/subscriptions/*, /v1/webhooks/payment
+
+#### AI Career Counseling Engine
+- Prisma models: CareerCounselingSession, CareerCounselingMessage, CareerSignal, CareerHypothesis, CareerReport, AiUsageLog
+- Conversational approach inspired by Holland/RIASEC, Super, CIP, Narrative theories
+- Signal extraction from natural language, hypothesis building, report generation
+- Routes: /v1/career-counseling/*
+
+#### Super Admin Backend
+- SUPER_ADMIN role added to UserRole enum
+- Full CRUD admin APIs: users, teachers, students, classrooms, subscriptions, AI usage, audit logs, system health
+- All admin routes require SUPER_ADMIN authorization
+- Routes: /v1/admin/*
+
+#### Notification Delivery
+- NotificationDeliveryLog model added
+- userId + dedupeKey unique constraint for deduplication
 
 ### Known Remaining Issues
 1. **Frontend has no real OAuth/API implementation** — buttons are UI mockups only
